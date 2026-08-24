@@ -44,7 +44,7 @@ Route::post('/yas/user/{refercode}', function ($refercode) {
         "abc123"=> [
         "refer_code"=> "abc123",
         "customer_name"=> "john doe",
-        "invitor_number"=> 57,
+        "invitor_number"=> 5,
         ],
          "abc124"=> [
         "refer_code"=> "abc124",
@@ -54,7 +54,12 @@ Route::post('/yas/user/{refercode}', function ($refercode) {
           "abc125"=> [
         "refer_code"=> "abc125",
         "customer_name"=> "john doe",
-        "invitor_number"=> 57,
+        "invitor_number"=> 5,
+        ],
+          "abc129"=> [
+        "refer_code"=> "abc129",
+        "customer_name"=> "john de",
+        "invitor_number"=> 7,
         ]
         ];
     return response() -> json([
