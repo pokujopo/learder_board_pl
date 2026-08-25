@@ -24,6 +24,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::post('/logout', [register_login_api::class, 'logout_api']);
+    Route::post('internal/user',[FetchApi::class, 'fetch_api']);
+    Route::get('ranking/yas/gift/', [FetchApi::class, 'ranking_api']);
 
 });
 
@@ -34,32 +36,30 @@ Route::get('/user', function (Request $request) {
  */
 
 //user requast 234acbd
-Route::post('internal/user',[FetchApi::class, 'fetch_api']);
-Route::get('ranking/yas/gift/', [FetchApi::class, 'ranking_api']);
 
 
 //demo ex ternal api
 Route::post('/yas/user/{refercode}', function ($refercode) {
     $all_customer = [
-        "abc123"=> [
-        "refer_code"=> "abc123",
+        "abc823"=> [
+        "refer_code"=> "abc823",
         "customer_name"=> "john doe",
-        "invitor_number"=> 5,
+        "invitor_number"=> 30000,
         ],
          "abc124"=> [
         "refer_code"=> "abc124",
         "customer_name"=> "john iso",
-        "invitor_number"=> 7,
+        "invitor_number"=> 9000,
          ],
           "abc125"=> [
         "refer_code"=> "abc125",
-        "customer_name"=> "john doe",
-        "invitor_number"=> 5,
+        "customer_name"=> "akali doe",
+        "invitor_number"=> 1000,
         ],
           "abc129"=> [
         "refer_code"=> "abc129",
         "customer_name"=> "john de",
-        "invitor_number"=> 7,
+        "invitor_number"=> 7000,
         ]
         ];
     return response() -> json([

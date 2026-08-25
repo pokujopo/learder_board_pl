@@ -38,4 +38,13 @@ return [
     'url' => env('YAS_API_URL'),
 ],
 
+'referral' => [
+    'url' => env(
+        'REFERRAL_API_URL',
+        'http://127.0.0.1:8001/api/yas/user'
+    ),
+
+    'token' => env('REFERRAL_API_TOKEN'),
+],
+
 ];
