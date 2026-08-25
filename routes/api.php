@@ -60,6 +60,11 @@ Route::post('/yas/user/{refercode}', function ($refercode) {
         "refer_code"=> "abc129",
         "customer_name"=> "john de",
         "invitor_number"=> 7000,
+        ],
+          "abc120"=> [
+        "refer_code"=> "abc120",
+        "customer_name"=> "jo de",
+        "invitor_number"=> 980,
         ]
         ];
     return response() -> json([

@@ -49,6 +49,10 @@ class register_login_api extends Controller
         ], 401);
     }
 
+    $user->tokens()
+        ->where('name', 'auth-token')
+        ->delete();
+
     $token = $user->createToken('auth-token')->plainTextToken;
 
     return response()->json([
