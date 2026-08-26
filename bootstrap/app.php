@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,20 +14,66 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+
     ->withMiddleware(function (Middleware $middleware): void {
         //
     })
+
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Hakikisha maombi ya API yanarudisha JSON badala ya HTML
+
+        /*
+        |--------------------------------------------------------------------------
+        | API errors ziwe JSON
+        |--------------------------------------------------------------------------
+        */
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) =>
+                $request->is('api/*') || $request->expectsJson(),
         );
 
-        // Njia ya kukamata na kubadilisha Method Not Allowed Error
-        $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Method Not Allowed.',
-            ], 405);
-        });
-    })->create();
+        /*
+        |--------------------------------------------------------------------------
+        | 404 - API route haipo
+        |--------------------------------------------------------------------------
+        */
+        $exceptions->render(
+            function (
+                NotFoundHttpException $e,
+                Request $request
+            ) {
+
+                if ($request->is('api/*')) {
+                    return response()->json([
+                        'status' => 404,
+                        'message' => 'API endpoint not found.',
+                    ], 404);
+                }
+
+                return null;
+            }
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | 405 - HTTP method hairuhusiwi
+        |--------------------------------------------------------------------------
+        */
+        $exceptions->render(
+            function (
+                MethodNotAllowedHttpException $e,
+                Request $request
+            ) {
+
+                if ($request->is('api/*')) {
+                    return response()->json([
+                        'status' => 405,
+                        'message' => 'HTTP method not allowed.',
+                    ], 405);
+                }
+
+                return null;
+            }
+        );
+    })
+
+    ->create();

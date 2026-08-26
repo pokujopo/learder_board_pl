@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\Game;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -30,4 +32,15 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function games(): BelongsToMany
+        {
+            return $this->belongsToMany(Game::class)
+                ->withPivot([
+                    'refercode',
+                    'refercode_verified',
+                    'verified_at',
+                ])
+                ->withTimestamps();
+        }
 }

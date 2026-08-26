@@ -3,27 +3,40 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\GameUser;
 use App\Services\Referral\ReferralService;
+use App\Services\Ranking\RankingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Throwable;
-use App\Models\Yasuser;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
-use Exception;
+use Throwable;
 
 class FetchApi extends Controller
 {
     private const CACHE_DURATION = 60;
+
     public function __construct(
-        private ReferralService $referralService
+        private ReferralService $referralService,
+        private RankingService $rankingService
     ) {
     }
 
+    /**
+     * Internal endpoint used to synchronize a referral user.
+     *
+     * Required:
+     * - game_id
+     * - refercode
+     */
     public function fetch_api(Request $request)
     {
         $validated = $request->validate([
+            'game_id' => [
+                'required',
+                'integer',
+                'exists:games,id',
+            ],
+
             'refercode' => [
                 'required',
                 'string',
@@ -33,30 +46,81 @@ class FetchApi extends Controller
         ]);
 
         try {
+            $gameId = (int) $validated['game_id'];
             $refercode = $validated['refercode'];
 
-            $result = $this->referralService
-                ->fetchAndSync($refercode);
+            /*
+            |--------------------------------------------------------------------------
+            | Find the user's verified registration for this game
+            |--------------------------------------------------------------------------
+            */
 
-            // Referral data changed, therefore ranking cache
-            // must be invalidated.
+            $registration = GameUser::query()
+                ->where('user_id', $request->user()?->id)
+                ->where('game_id', $gameId)
+                ->where('refercode', $refercode)
+                ->where('refercode_verified', true)
+                ->with('game')
+                ->first();
+
+            if (!$registration || !$registration->game) {
+                return response()->json([
+                    'status' => 404,
+                    'message' => 'Verified game registration not found.',
+                ], 404);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Ask external API to identify the referral
+            |--------------------------------------------------------------------------
+            |
+            | IMPORTANT:
+            | We do NOT determine company from the refercode ourselves.
+            | The external API response is the source of truth.
+            |
+            */
+
+            $result = $this->referralService->fetchAndSync(
+                $refercode,
+                $registration->game
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Ranking cache
+            |--------------------------------------------------------------------------
+            */
+
             if ($result['hasChanges']) {
-                Cache::forget('yasuser_ranking_all');
+                Cache::forget(
+                    "game:{$gameId}:ranking"
+                );
             }
 
             return response()->json([
                 'status' => 200,
+
                 'message' => $result['hasChanges']
                     ? 'User data updated'
                     : 'User data synchronized',
+
+                'game_id' => $gameId,
+
                 'data' => $result['user'],
+
                 'hasChanges' => $result['hasChanges'],
+
                 'changes' => $result['changes'],
             ]);
 
         } catch (Throwable $e) {
 
-            report($e);
+            Log::error('Referral synchronization failed.', [
+                'game_id' => $request->input('game_id'),
+                'refercode' => $request->input('refercode'),
+                'error' => $e->getMessage(),
+            ]);
 
             return response()->json([
                 'status' => 500,
@@ -64,51 +128,87 @@ class FetchApi extends Controller
             ], 500);
         }
     }
-    public function ranking_api()
-        {   
-            $cacheKey = 'yasuser_ranking_all';
 
-            $cachedRanking = Cache::get($cacheKey);
+    /**
+     * Get ranking for a specific game.
+     */
+    public function ranking_api(
+        Request $request,
+        int $game
+    ) {
+        $cacheKey = "game:{$game}:ranking";
 
-            if ($cachedRanking !== null) {
+        $cached = Cache::get($cacheKey);
 
-                Log::info('Cache hit for ranking');
+        if ($cached !== null) {
 
-                return response()->json([
-                    'status' => 200,
-                    'message' => 'Rankings retrieved from cache',
-                    'cached' => true,
-                    'data' => $cachedRanking,
-                ]);
-            }
+            $ranking = collect($cached);
 
-            $competitors = Yasuser::query()
-                ->orderByDesc('total_inviter_number')
-                ->get()
-                ->map(function ($user, $index) {
-                    return [
-                        'rank' => $index + 1,
-                        'id' => $user->id,
-                        'refercode' => $user->refercode,
-                        'name' => $user->compitetor_name,
-                        'total_inviter_number' => $user->total_inviter_number,
-                    ];
-                })
-                ->values()
-                ->all();
-
-            Cache::put(
-                $cacheKey,
-                $competitors,
-                self::CACHE_DURATION
+            $currentUser = $ranking->firstWhere(
+                'user_id',
+                $request->user()->id
             );
-
-            Log::info('Successfully retrieved rankings');
 
             return response()->json([
                 'status' => 200,
-                'message' => 'Rankings retrieved successfully',
-                'cached' => false,
-                'data' => $competitors,
+                'message' => 'Rankings retrieved from cache',
+                'cached' => true,
+                'game_id' => $game,
+                'current_user' => $currentUser,
+                'data' => $ranking,
             ]);
-        }}
+        }
+
+        $ranking = $this->rankingService
+            ->updateRanks($game);
+
+        $data = $ranking
+            ->map(function (GameUser $gameUser) {
+
+                return [
+                    'rank' => $gameUser->current_rank,
+
+                    'user_id' => $gameUser->user_id,
+
+                    'refercode' => $gameUser->refercode,
+
+                    'name' =>
+                        $gameUser->yasuser->compitetor_name,
+
+                    'total_inviter_number' =>
+                        $gameUser->yasuser->total_inviter_number,
+
+                    'previous_rank' =>
+                        $gameUser->previous_rank,
+
+                    'rank_change' =>
+                        $gameUser->rank_change,
+
+                    'rank_movement' =>
+                        $gameUser->rank_movement,
+                ];
+            })
+            ->values()
+            ->all();
+
+        Cache::put(
+            $cacheKey,
+            $data,
+            self::CACHE_DURATION
+        );
+
+        $currentUser = collect($data)->firstWhere(
+            'user_id',
+            $request->user()->id
+        );
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Rankings retrieved successfully',
+            'cached' => false,
+            'game_id' => $game,
+            'current_user' => $currentUser,
+            'data' => $data,
+        ]);
+    }
+}
