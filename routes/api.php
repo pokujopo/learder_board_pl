@@ -18,7 +18,7 @@ Route::post('/login', [register_login_api::class, 'login_api'])->name('login');
 Route::middleware('auth:sanctum')->group(function () {
 
     // Get authenticated user
-    Route::get('/user', function (Request $request) {
+    Route::get('profile/data/user', function (Request $request) {
         return response()->json([
             'status' => 200,
             'user' => $request->user(),
@@ -26,28 +26,17 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::post('/logout', [register_login_api::class, 'logout_api']);
-    Route::post('internal/user',[FetchApi::class, 'fetch_api']);
-    Route::post(
-        'games/{game}/verify-refercode',
-        [GameReferralController::class, 'verify']
-    );
-    Route::post(
-        'games/{game}/verify-refercode',
-        [GameRegistrationController::class, 'verifyRefercode']
-    );
+    //Route::post('games/{game}/verify-refercode', [GameReferralController::class, 'verify']);
+    Route::post('games/{game}/verify-refercode', [GameRegistrationController::class, 'verifyRefercode']);
     Route::get(
         'ranking/games/{game}',
         [FetchApi::class, 'ranking_api']
     );
-
-
 });
 
 
- Route::get('ranking/yas/gift/', [FetchApi::class, 'ranking_api']);
-
-
-
+// Route::get('ranking/yas/gift/', [FetchApi::class, 'ranking_api']);
+//Route::post('internal/user',[FetchApi::class, 'fetch_api']);
 /*
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -75,7 +64,13 @@ Route::post('/yas/user/{refercode}', function ($refercode) {
         "abc999" => [
             "refer_code" => "abc999",
             "customer_name" => "Test User",
-            "invitor_number" => 23400000,
+            "invitor_number" => 2340000000,
+        ],
+
+        "abc87" => [
+            "refer_code" => "abc87",
+            "customer_name" => "Te User",
+            "invitor_number" => 200000000000,
         ],
     ];
 
@@ -88,12 +83,6 @@ Route::post('/yas/user/{refercode}', function ($refercode) {
 
     return response()->json([
         "status" => 200,
-
-        "company" => [
-            "id" => 1,
-            "name" => "YAS",
-        ],
-
         "customer_all" => $all_customer[$refercode],
-    ]);
+    ], 200);
 });

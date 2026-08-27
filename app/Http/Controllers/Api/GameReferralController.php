@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\RefercodeNotFoundException;
+use App\Exceptions\ReferralServiceUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Models\Game;
-use Illuminate\Http\Request;
 use App\Services\Referral\ReferralService;
-use Throwable;
+use Illuminate\Http\Request;
 
 class GameReferralController extends Controller
 {
@@ -32,6 +33,7 @@ class GameReferralController extends Controller
         }
 
         try {
+
             $result = $referralService->fetchAndSync(
                 $validated['refercode'],
                 $game
@@ -40,22 +42,31 @@ class GameReferralController extends Controller
             return response()->json([
                 'status' => 200,
                 'message' => 'Refercode verified successfully.',
+
                 'game' => [
                     'id' => $game->id,
                     'name' => $game->name,
                     'code' => $game->code,
                 ],
+
                 'data' => $result['user'],
             ]);
 
-        } catch (Throwable $e) {
+        } catch (RefercodeNotFoundException $e) {
+
+            return response()->json([
+                'status' => 404,
+                'message' => 'Refercode not found.',
+            ], 404);
+
+        } catch (ReferralServiceUnavailableException $e) {
 
             report($e);
 
             return response()->json([
-                'status' => 404,
+                'status' => 500,
                 'message' => 'Unable to verify refercode.',
-            ], 404);
+            ], 500);
         }
     }
 }

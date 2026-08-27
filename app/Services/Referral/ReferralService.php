@@ -2,10 +2,13 @@
 
 namespace App\Services\Referral;
 
+use App\Exceptions\RefercodeNotFoundException;
+use App\Exceptions\ReferralServiceUnavailableException;
 use App\Models\Game;
 use App\Models\Yasuser;
 use Exception;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ReferralService
 {
@@ -26,12 +29,6 @@ class ReferralService
             $refercode
         );
 
-        if (!$externalData) {
-            throw new Exception(
-                'User not found in external API.'
-            );
-        }
-
         return $this->syncUser(
             $refercode,
             $externalData,
@@ -48,26 +45,108 @@ class ReferralService
             'http://127.0.0.1:8001/api/yas/user'
         );
 
-        $response = Http::timeout(
+        try {
+
+            $response = Http::timeout(
                 self::API_TIMEOUT
             )
             ->connectTimeout(10)
-            ->retry(3, 100)
+            ->retry(
+                3,
+                100,
+                throw: false
+            )
             ->post(
                 $baseUrl . '/' . urlencode($refercode)
             );
 
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+
+            Log::error('Referral external API connection failed', [
+                'refercode' => $refercode,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new ReferralServiceUnavailableException(
+                'Referral service is unavailable.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | External API unavailable
+        |--------------------------------------------------------------------------
+        */
+
+        if ($response->serverError()) {
+
+            Log::error('Referral external API server error', [
+                'refercode' => $refercode,
+                'status' => $response->status(),
+            ]);
+
+            throw new ReferralServiceUnavailableException(
+                'Referral service is unavailable.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Refercode does not exist
+        |--------------------------------------------------------------------------
+        */
+
+        if ($response->notFound()) {
+
+            throw new RefercodeNotFoundException(
+                'Refercode was not found.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Any other client error
+        |--------------------------------------------------------------------------
+        */
+
+        if ($response->clientError()) {
+
+            throw new RefercodeNotFoundException(
+                'Refercode could not be verified.'
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Validate successful response
+        |--------------------------------------------------------------------------
+        */
+
         if (!$response->successful()) {
-            throw new Exception(
-                "External API returned status {$response->status()}."
+
+            throw new ReferralServiceUnavailableException(
+                'Referral service is unavailable.'
             );
         }
 
         $data = $response->json();
 
-        if (!isset($data['customer_all'])) {
-            throw new Exception(
-                'Invalid external API response.'
+        /*
+        |--------------------------------------------------------------------------
+        | Validate external API structure
+        |--------------------------------------------------------------------------
+        */
+
+        if (!isset($data['customer_all']) ||
+            !is_array($data['customer_all'])) {
+
+            Log::error('Invalid referral API response', [
+                'refercode' => $refercode,
+                'response' => $data,
+            ]);
+
+            throw new ReferralServiceUnavailableException(
+                'Invalid referral service response.'
             );
         }
 
@@ -79,16 +158,6 @@ class ReferralService
         array $externalData,
         Game $game
     ): array {
-
-        /*
-        |--------------------------------------------------------------------------
-        | IMPORTANT
-        |--------------------------------------------------------------------------
-        |
-        | We don't decide which company owns the refercode.
-        | The external API response tells us who the customer is.
-        |
-        */
 
         $externalRefercode =
             $externalData['refer_code'] ?? $refercode;
@@ -109,12 +178,6 @@ class ReferralService
 
             'last_synced_at' => now(),
         ];
-
-        /*
-        |--------------------------------------------------------------------------
-        | Find existing referral user
-        |--------------------------------------------------------------------------
-        */
 
         $existingUser = Yasuser::query()
             ->where('game_id', $game->id)
@@ -137,8 +200,11 @@ class ReferralService
                 ) {
 
                     $changes[$field] = [
-                        'old' => $existingUser->{$field},
-                        'new' => $newData[$field],
+                        'old' =>
+                            $existingUser->{$field},
+
+                        'new' =>
+                            $newData[$field],
                     ];
                 }
             }
@@ -148,12 +214,6 @@ class ReferralService
             $changes['status'] =
                 'new_user_created';
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Save
-        |--------------------------------------------------------------------------
-        */
 
         $user = Yasuser::updateOrCreate(
             [
