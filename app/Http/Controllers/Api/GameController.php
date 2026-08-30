@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -19,8 +18,8 @@ class GameController extends Controller
                 'users as participants_count',
 
                 'users as verified_refercodes_count' => function ($query) {
-                    $query->wherePivot(
-                        'refercode_verified',
+                    $query->where(
+                        'game_user.refercode_verified',
                         true
                     );
                 },
@@ -37,8 +36,10 @@ class GameController extends Controller
                     $status = 'upcoming';
                     $statusLabel = 'Starts Soon';
 
-                } elseif ($now->gte($startDate) &&
-                          $now->lte($endDate)) {
+                } elseif (
+                    $now->gte($startDate) &&
+                    $now->lte($endDate)
+                ) {
 
                     /*
                     |--------------------------------------------------------------------------
