@@ -13,7 +13,7 @@ class RankingService
             ->where('game_id', $gameId)
             ->where('refercode_verified', true)
             ->with('yasuser')
-            ->get();
+            ->paginate(30);
 
         return $users
             ->filter(fn ($gameUser) => $gameUser->yasuser !== null)

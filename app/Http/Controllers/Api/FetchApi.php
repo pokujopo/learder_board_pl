@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use App\Models\Game;
 
 class FetchApi extends Controller
 {
@@ -133,82 +134,107 @@ class FetchApi extends Controller
      * Get ranking for a specific game.
      */
     public function ranking_api(
-        Request $request,
-        int $game
-    ) {
-        $cacheKey = "game:{$game}:ranking";
+                Request $request,
+                Game $game
+            ) {
+                $perPage = min(
+                    $request->integer('per_page', 50),
+                    100
+                );
 
-        $cached = Cache::get($cacheKey);
+                $page = $request->integer('page', 1);
 
-        if ($cached !== null) {
+                $cacheKey = "game:{$game->id}:ranking:page:{$page}:per_page:{$perPage}";
 
-            $ranking = collect($cached);
+                $cached = Cache::get($cacheKey);
 
-            $currentUser = $ranking->firstWhere(
-                'user_id',
-                $request->user()->id
-            );
+                if ($cached !== null) {
 
-            return response()->json([
-                'status' => 200,
-                'message' => 'Rankings retrieved from cache',
-                'cached' => true,
-                'game_id' => $game,
-                'current_user' => $currentUser,
-                'data' => $ranking,
-            ]);
-        }
+                    $ranking = collect($cached['data']);
 
-        $ranking = $this->rankingService
-            ->updateRanks($game);
+                    $currentUser = $ranking->firstWhere(
+                        'user_id',
+                        $request->user()->id
+                    );
 
-        $data = $ranking
-            ->map(function (GameUser $gameUser) {
+                    return response()->json([
+                        'status' => 200,
+                        'message' => 'Rankings retrieved from cache',
+                        'cached' => true,
+                        'game_id' => $game->id,
+                        'current_user' => $currentUser,
+                        'pagination' => $cached['pagination'],
+                        'data' => $ranking,
+                    ]);
+                }
 
-                return [
-                    'rank' => $gameUser->current_rank,
+                $ranking = $this->rankingService
+                    ->updateRanks($game->id);
 
-                    'user_id' => $gameUser->user_id,
+                $paginated = $ranking->forPage($page, $perPage);
 
-                    'refercode' => $gameUser->refercode,
+                $data = $paginated
+                    ->map(function (GameUser $gameUser) {
 
-                    'name' =>
-                        $gameUser->yasuser->compitetor_name,
+                        return [
+                            'rank' => $gameUser->current_rank,
 
-                    'total_inviter_number' =>
-                        $gameUser->yasuser->total_inviter_number,
+                            'user_id' => $gameUser->user_id,
 
-                    'previous_rank' =>
-                        $gameUser->previous_rank,
+                            'refercode' => $gameUser->refercode,
 
-                    'rank_change' =>
-                        $gameUser->rank_change,
+                            'name' =>
+                                $gameUser->yasuser->compitetor_name,
 
-                    'rank_movement' =>
-                        $gameUser->rank_movement,
+                            'total_inviter_number' =>
+                                $gameUser->yasuser->total_inviter_number,
+
+                            'previous_rank' =>
+                                $gameUser->previous_rank,
+
+                            'rank_change' =>
+                                $gameUser->rank_change,
+
+                            'rank_movement' =>
+                                $gameUser->rank_movement,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                $pagination = [
+                    'current_page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $ranking->count(),
+                    'last_page' => (int) ceil(
+                        $ranking->count() / $perPage
+                    ),
                 ];
-            })
-            ->values()
-            ->all();
 
-        Cache::put(
-            $cacheKey,
-            $data,
-            self::CACHE_DURATION
-        );
+                $cacheData = [
+                    'data' => $data,
+                    'pagination' => $pagination,
+                ];
 
-        $currentUser = collect($data)->firstWhere(
-            'user_id',
-            $request->user()->id
-        );
+                Cache::put(
+                    $cacheKey,
+                    $cacheData,
+                    self::CACHE_DURATION
+                );
 
-        return response()->json([
-            'status' => 200,
-            'message' => 'Rankings retrieved successfully',
-            'cached' => false,
-            'game_id' => $game,
-            'current_user' => $currentUser,
-            'data' => $data,
-        ]);
-    }
+                $currentUser = collect($data)->firstWhere(
+                    'user_id',
+                    $request->user()->id
+                );
+
+                return response()->json([
+                    'status' => 200,
+                    'message' => 'Rankings retrieved successfully',
+                    'cached' => false,
+                    'game_id' => $game->id,
+                    'current_user' => $currentUser,
+                    'pagination' => $pagination,
+                    'data' => $data,
+                ]);
+            }
 }

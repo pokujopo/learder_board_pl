@@ -1,0 +1,282 @@
+api/
+  POST register/
+     body: {
+                "name": "alssjjjssl Ddddddoe",
+                "email": "johees2222ss2sseuussnisa@gmail.com",
+                "phone_number": "0712223945678",
+                "location": "Dar es Salaam",
+                "password": "12345678",
+                "password_confirmation": "12345678"
+                }
+     response:
+           status 201 "created": {
+                            "status": 201,
+                            "message": "User registered successfully",
+                            "user": {
+                                "name": "alssjjjs222sl Ddddddoe",
+                                "email": "johees222222ss2sseuussnisa@gmail.com",
+                                "phone_number": "071222344945678",
+                                "location": "Dar es Salaam",
+                                "updated_at": "2026-08-29T21:28:33.000000Z",
+                                "created_at": "2026-08-29T21:28:33.000000Z",
+                                "id": 509
+                            },
+                            "token": "45|WTLJAdgWBIWIlkXNaC3ayl01oK6Qufosc6xcHL276e265955"
+            }
+
+          
+
+ POST login/
+     body: {"email":"johnisa@gmail.com","password":"12345678"}
+     response:
+         status 401: {
+                "status": 401,
+                "message": "Invalid email or password"
+            }
+
+         status 200 "ok": {
+                "status": 200,
+                "message": "Login successful",
+                "user": {
+                    "id": 501,
+                    "name": "all Doe",
+                    "email": "johnisa@gmail.com",
+                    "email_verified_at": null,
+                    "created_at": "2026-08-27T08:03:19.000000Z",
+                    "updated_at": "2026-08-28T06:43:58.000000Z",
+                    "role": "admin",
+                    "phone_number": null,
+                    "location": null
+                },
+                "token": "46|jPwNdP2aJrXikPez38H0ED7VUy7ujFbagXt8ENLMa7c162ee"
+                }
+  POST logout/
+         body: "Bearer token 233njdsoii12991238912920190"
+            response 200 ok:
+                    {
+                "status": 200,
+                "message": "Logout successful"
+                }
+
+
+     status 401: {
+            "message": "Unauthenticated."
+            }
+     status 404 "not found": {
+                    "status": 404,
+                    "message": "API endpoint not found."
+                }
+     status 422 "Unprocessable Content": {
+                    "message": "The email has already been taken. (and 1 more error)",
+                    "errors": {
+                        "email": [
+                        "The email has already been taken."
+                        ],
+                        "phone_number": [
+                        "The phone number has already been taken."
+                        ]
+                    }
+                }
+                    or
+                {
+                    "message": "The name field is required. (and 2 more errors)",
+                    "errors": {
+                        "name": [
+                        "The name field is required."
+                        ],
+                        "email": [
+                        "The email has already been taken."
+                        ],
+                        "phone_number": [
+                        "The phone number has already been taken."
+                        ]
+                    }
+                    }
+
+ GET /games
+       response status 200:
+            {
+                "status": 200,
+                "message": "Games retrieved successfully.",
+                "data": [
+                    {
+                    "id": "gm_dNt0WYbJd3HhQ1GwU3py49Aa",
+                    "name": "YAS Gift Competition",
+                    "status": "upcoming",
+                    "status_label": "Starts Soon",
+                    "start_date": "2026-09-01T00:00:00.000000Z",
+                    "end_date": "2026-09-30T23:59:59.000000Z",
+                    "participants": 0,
+                    "verified_refercodes": 0,
+                    "prizes": {
+                        "first_place_prize": "1000000.00",
+                        "second_place_prize": "500000.00",
+                        "third_place_prize": "250000.00"
+                    },
+                    "rules": "Participant must register using a valid referral code. The participant with the highest inviter number wins."
+                    },  
+                ]
+        }
+
+  POST games/public_id/verify-refercode
+            body: {"refercode":"abc120"} and "Bearer token 47|y7l47GPuOnKubUhKUCoGbE9f4YbHpJkISU2DBfnvd8973342"
+            response: 
+                status 409 "conflict":   {
+                    "status": 409,
+                    "message": "You are already registered for this game."
+                    }
+                    or
+                    {
+                    "status": 409,
+                    "message": "This refercode has already been taken."
+                    }
+
+
+                status 404: {
+                "status": 404,
+                "message": "This refercode is not recognized."
+                }
+
+                status 200: {
+                "status": 200,
+                "message": "Refercode verified successfully.",
+                "data": {
+                    "game": {
+                    "id": 1,
+                    "name": "YAS Gift",
+                    "code": "yas-gift"
+                    },
+                    "user": {
+                    "id": 511,
+                    "refercode": "abc270",
+                    "compitetor_name": "Te User",
+                    "total_inviter_number": 200000000000,
+                    "last_synced_at": "2026-08-29T21:52:39.000000Z",
+                    "created_at": "2026-08-29T21:52:39.000000Z",
+                    "updated_at": "2026-08-29T21:52:39.000000Z",
+                    "game_id": 1,
+                    "company_id": null
+                    },
+                    "registration": {
+                    "user_id": 510,
+                    "game_id": 1,
+                    "refercode": "abc270",
+                    "refercode_verified": true,
+                    "verified_at": "2026-08-29T21:52:39.000000Z",
+                    "updated_at": "2026-08-29T21:52:39.000000Z",
+                    "created_at": "2026-08-29T21:52:39.000000Z",
+                    "id": 510
+                    }
+                }
+                }
+
+     GET ranking/games/public_id
+           body: "Bearer token 7893jkladjiopqwejdpqjiodwkldskjaid"
+           response: {
+                "status": 200,
+                "message": "Rankings retrieved successfully",
+                "cached": false,
+                "game_id": {
+                    "id": 2,
+                    "name": "VODA Gift",
+                    "code": "voda-gift",
+                    "is_active": true,
+                    "created_at": "2026-08-27T10:36:15.000000Z",
+                    "updated_at": "2026-08-27T12:22:34.000000Z",
+                    "public_id": "gm_10GnNJwP0DeTeR0ZlSqdkphV",
+                    "start_date": null,
+                    "end_date": null,
+                    "first_place_prize": null,
+                    "second_place_prize": null,
+                    "third_place_prize": null,
+                    "competition_rules": null,
+                    "winning_instructions": null
+                },
+                "current_user": null,
+                "data": [
+                    {
+                    "rank": 1,
+                    "user_id": 501,
+                    "refercode": "abc87",
+                    "name": "Te User",
+                    "total_inviter_number": 200000000000,
+                    "previous_rank": 1,
+                    "rank_change": 0,
+                    "rank_movement": "same"
+                    }
+                ]
+}      
+
+   GET profile/dashboard/user
+        body: Bearer token 
+        response: {
+            "status": 200,
+            "user": {
+                "name": "all Doe",
+                "email": "johnisa@gmail.com",
+                "phone": null,
+                "location": null,
+                "games_joined": 3,
+                "games": [
+                {
+                    "game": {
+                    "id": 1,
+                    "name": "YAS Gift",
+                    "code": "yas-gift"
+                    },
+                    "refercode": "abc877",
+                    "refercode_verified": true,
+                    "invitor_number": 200000000000,
+                    "ranking": {
+                    "current_rank": 1,
+                    "previous_rank": 1,
+                    "rank_change": 0,
+                    "rank_movement": "same"
+                    },
+                    "joined_at": "2026-08-27T10:20:45.000000Z"
+                },
+                {
+                    "game": {
+                    "id": 2,
+                    "name": "VODA Gift",
+                    "code": "voda-gift"
+                    },
+                    "refercode": "abc87",
+                    "refercode_verified": true,
+                    "invitor_number": 200000000000,
+                    "ranking": {
+                    "current_rank": 1,
+                    "previous_rank": 1,
+                    "rank_change": 0,
+                    "rank_movement": "same"
+                    },
+                    "joined_at": "2026-08-27T11:03:16.000000Z"
+                },
+                {
+                    "game": {
+                    "id": 3,
+                    "name": "Jengine Gift",
+                    "code": "jengine-gift"
+                    },
+                    "refercode": "abc870",
+                    "refercode_verified": true,
+                    "invitor_number": 200000000000,
+                    "ranking": {
+                    "current_rank": 1,
+                    "previous_rank": null,
+                    "rank_change": 0,
+                    "rank_movement": "new"
+                    },
+                    "joined_at": "2026-08-27T11:10:06.000000Z"
+                }
+                ]
+            }
+            }
+                            
+    other response
+       {
+  "status": 403,
+  "message": "You do not have permission to access this resource."
+}        
+
+

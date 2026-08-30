@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\FetchApi;
 use App\Http\Controllers\Api\GameReferralController;
 use App\Http\Controllers\Api\GameRegistrationController;
+use Illuminate\Routing\Controller;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\AdminGameController;
+use App\Http\Controllers\Api\GameController;
 //use League\Uri\Http;
 //use Illuminate\Support\Facades\Http;
 //use  App\Models\Yasuser;
@@ -14,7 +18,23 @@ use App\Http\Controllers\Api\GameRegistrationController;
 //auth
 Route::post('/register',[register_login_api::class, 'register_api']);
 Route::post('/login', [register_login_api::class, 'login_api'])->name('login');
+Route::get('/games', [GameController::class, 'index']);
 
+
+Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+
+    Route::get('/user/dashboard', function () {
+        return response()->json([
+            'status' => 200,
+            'message' => 'Welcome admin',
+        ]);
+    });
+    Route::post(
+        '/admin/games',
+        [AdminGameController::class, 'store']
+    );
+
+});
 Route::middleware('auth:sanctum')->group(function () {
 
     // Get authenticated user
@@ -24,14 +44,13 @@ Route::middleware('auth:sanctum')->group(function () {
             'user' => $request->user(),
         ]);
     });
+    //path main user dashboard
+    Route::get('/profile/dashboard/user', [ProfileController::class, 'data']);
     
     Route::post('/logout', [register_login_api::class, 'logout_api']);
     //Route::post('games/{game}/verify-refercode', [GameReferralController::class, 'verify']);
     Route::post('games/{game}/verify-refercode', [GameRegistrationController::class, 'verifyRefercode']);
-    Route::get(
-        'ranking/games/{game}',
-        [FetchApi::class, 'ranking_api']
-    );
+    Route::get('ranking/games/{game}',[FetchApi::class, 'ranking_api']);
 });
 
 
@@ -67,8 +86,8 @@ Route::post('/yas/user/{refercode}', function ($refercode) {
             "invitor_number" => 2340000000,
         ],
 
-        "abc87" => [
-            "refer_code" => "abc87",
+        "abc270" => [
+            "refer_code" => "abc270",
             "customer_name" => "Te User",
             "invitor_number" => 200000000000,
         ],

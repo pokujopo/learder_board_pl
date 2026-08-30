@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GameUser extends Model
 {
@@ -34,6 +36,11 @@ class GameUser extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function gameUsers(): HasMany
+        {
+            return $this->hasMany(GameUser::class);
+        }
+
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
@@ -47,4 +54,12 @@ class GameUser extends Model
                 'refercode'
             );
         }
+
+    
+
+    public function getRouteKeyName(): string
+                {
+                    return 'public_id';
+                }    
+
 }

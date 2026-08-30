@@ -12,16 +12,49 @@ class register_login_api extends Controller
 {
     public function register_api(Request $request) {
 
-    $request->validate([
-        'name' => 'required|string|max:255',
-        'email' => 'required|email|unique:users,email',
-        'password' => 'required|min:6|confirmed',
-    ]);
+    $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                'unique:users,email',
+            ],
+
+            'phone_number' => [
+                'required',
+                'string',
+                'max:20',
+                'unique:users,phone_number',
+            ],
+
+            'location' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
+        ]);
 
     $user = User::create([
-        'name' => $request->name,
-        'email' => $request->email,
-        'password' => Hash::make($request->password),
+        'name' => $validated['name'],
+        'email' => $validated['email'],
+        'password' => Hash::make($validated['password']),
+        'phone_number' => $validated['phone_number'],
+        'location' => $validated['location'],
+        'role' => 'user',
+
     ]);
 
     $token = $user->createToken('auth-token')->plainTextToken;
