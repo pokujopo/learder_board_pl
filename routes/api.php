@@ -10,61 +10,77 @@ use Illuminate\Routing\Controller;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\AdminGameController;
 use App\Http\Controllers\Api\GameController;
-//use League\Uri\Http;
-//use Illuminate\Support\Facades\Http;
-//use  App\Models\Yasuser;
+use App\Http\Middleware\RateLimitMiddleware;
 
-
-//auth
-Route::post('/register',[register_login_api::class, 'register_api']);
-Route::post('/login', [register_login_api::class, 'login_api'])->name('login');
-Route::get('/games', [GameController::class, 'index']);
-
-
-Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
-
-    Route::get('/user/dashboard', function () {
-        return response()->json([
-            'status' => 200,
-            'message' => 'Welcome admin',
-        ]);
-    });
-    Route::post(
-        '/admin/games',
-        [AdminGameController::class, 'store']
-    );
-
-});
-Route::middleware('auth:sanctum')->group(function () {
-
-    // Get authenticated user
-    Route::get('profile/data/user', function (Request $request) {
-        return response()->json([
-            'status' => 200,
-            'user' => $request->user(),
-        ]);
-    });
-    //path main user dashboard
-    Route::get('/profile/dashboard/user', [ProfileController::class, 'data']);
-    
-    Route::post('/logout', [register_login_api::class, 'logout_api']);
-    //Route::post('games/{game}/verify-refercode', [GameReferralController::class, 'verify']);
-    Route::post('games/{game}/verify-refercode', [GameRegistrationController::class, 'verifyRefercode']);
-    Route::get('ranking/games/{game}',[FetchApi::class, 'ranking_api']);
-});
-
-
-// Route::get('ranking/yas/gift/', [FetchApi::class, 'ranking_api']);
-//Route::post('internal/user',[FetchApi::class, 'fetch_api']);
 /*
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
- */
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
 
-//user requast 234acbd
+// Apply rate limiting to all API routes
+Route::middleware([RateLimitMiddleware::class])->group(function () {
 
+    /*
+    |--------------------------------------------------------------------------
+    | Public Auth Routes (No Authentication Required)
+    |--------------------------------------------------------------------------
+    */
+    Route::post('/register', [register_login_api::class, 'register_api']);
+    Route::post('/login', [register_login_api::class, 'login_api'])->name('login');
+    Route::get('/games', [GameController::class, 'index']);
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Routes (Requires Admin Role)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+
+        Route::get('/user/dashboard', function () {
+            return response()->json([
+                'status' => 200,
+                'message' => 'Welcome admin',
+            ]);
+        });
+
+        Route::post('/admin/games', [AdminGameController::class, 'store']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Routes (Requires Authentication)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('auth:sanctum')->group(function () {
+
+        // Get authenticated user profile
+        Route::get('profile/data/user', function (Request $request) {
+            return response()->json([
+                'status' => 200,
+                'user' => $request->user(),
+            ]);
+        });
+
+        // Get user dashboard with games joined
+        Route::get('/profile/dashboard/user', [ProfileController::class, 'data']);
+
+        // Logout
+        Route::post('/logout', [register_login_api::class, 'logout_api']);
+
+        // Game participation
+        Route::post('games/{game}/verify-refercode', [GameRegistrationController::class, 'verifyRefercode']);
+
+        // Leaderboard rankings
+        Route::get('ranking/games/{game}', [FetchApi::class, 'ranking_api']);
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Test Routes (Development Only)
+|--------------------------------------------------------------------------
+*/
 Route::post('/yas/user/{refercode}', function ($refercode) {
 
     $all_customer = [
