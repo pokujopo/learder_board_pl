@@ -3,6 +3,8 @@
 use App\Models\User;
 
 return [
+    'access_token_ttl' => (int) env('ACCESS_TOKEN_TTL', 900),
+
 
     /*
     |--------------------------------------------------------------------------

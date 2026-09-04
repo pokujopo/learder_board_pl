@@ -57,9 +57,6 @@ class GameUser extends Model
 
     
 
-    public function getRouteKeyName(): string
-                {
-                    return 'public_id';
-                }    
+    public function getRouteKeyName(): string { return 'id'; }    
 
 }

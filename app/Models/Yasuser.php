@@ -15,7 +15,7 @@ class Yasuser extends Model
         'refercode',
         'compitetor_name',
         'total_inviter_number',
-        'last_synced_at',
+        'last_synced_at','status',
     ];
 
     protected $casts = [
