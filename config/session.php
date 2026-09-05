@@ -18,6 +18,8 @@ return [
     |
     */
 
+    
+
     'driver' => env('SESSION_DRIVER', 'database'),
 
     /*
@@ -199,7 +201,8 @@ return [
     |
     */
 
-    'same_site' => env('SESSION_SAME_SITE', 'lax'),
+    'same_site' => env('SESSION_SAME_SITE'),
+    
 
     /*
     |--------------------------------------------------------------------------
