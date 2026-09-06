@@ -10,9 +10,9 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'http://pawacode.com',
+        'https://pawacode.com',
+        'https://www.pawacode.com',
         'http://localhost:8443',
-        
     ],
 
     'allowed_origins_patterns' => [],
