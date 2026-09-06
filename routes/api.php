@@ -12,6 +12,24 @@ use App\Http\Middleware\RateLimitMiddleware;
 use App\Http\Middleware\RoleMiddleware;
 use App\Models\GameUser;
 
+Route::get('/debug-cache', function () {
+    $limiter = app(\Illuminate\Cache\RateLimiter::class);
+
+    $ref = new ReflectionClass($limiter);
+    $prop = $ref->getProperty('cache');
+    $prop->setAccessible(true);
+
+    $cache = $prop->getValue($limiter);
+
+    return response()->json([
+        'cache_default' => config('cache.default'),
+        'cache_repository' => get_class($cache),
+        'cache_store' => get_class($cache->getStore()),
+        'env_cache_store' => env('CACHE_STORE'),
+        'env_cache_driver' => env('CACHE_DRIVER'),
+        'env_app_env' => env('APP_ENV'),
+    ]);
+});
 Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('register',[AuthController::class,'register']);
