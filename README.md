@@ -2,7 +2,7 @@
 
 ## 📊 Project Status
 
-This is a **Laravel-based leaderboard API** optimized for handling **1000+ concurrent users**. All critical performance optimizations have been implemented.
+This is a **Laravel-based leaderboard API** optimized for handling **1000+ concurrent users**. All critical performance optimizations have been implemented
 
 ---
 

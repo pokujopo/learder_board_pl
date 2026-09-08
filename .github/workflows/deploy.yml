@@ -1,0 +1,178 @@
+name: Deploy Laravel Production
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Test and Atomic Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, bcmath, pdo_mysql, redis
+          tools: composer
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: |
+          composer install \
+            --no-interaction \
+            --prefer-dist \
+            --no-progress
+      - name: Run tests
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        run: php artisan test
+
+      - name: Atomic production deployment
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          port: ${{ secrets.VPS_PORT }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          script_stop: true
+
+          script: |
+            set -Eeuo pipefail
+            APP="/www/wwwroot/185.194.218.79"
+            RELEASES="$APP/releases"
+            SHARED="$APP/shared"
+            RELEASE_ID="$(date +%Y%m%d%H%M%S)-${{ github.sha }}"
+            RELEASE="$RELEASES/$RELEASE_ID"
+            echo "========================================="
+            echo "PAWACODE ATOMIC DEPLOYMENT"
+            echo "Release: $RELEASE_ID"
+            echo "Commit:  ${{ github.sha }}"
+            echo "========================================="
+            cd "$APP"
+            mkdir -p "$RELEASES" "$SHARED"
+            echo "== Fetching latest code =="
+            git fetch --prune origin main
+            echo "== Creating new release =="
+            mkdir -p "$RELEASE"
+            git archive origin/main | tar -x -C "$RELEASE"
+            echo "== Linking production environment =="
+            rm -f "$RELEASE/.env"
+            ln -s "$SHARED/.env" "$RELEASE/.env"
+            echo "== Preparing shared storage =="
+            mkdir -p "$SHARED/storage"
+            if [ -d "$RELEASE/storage" ]; then
+              cp -a "$RELEASE/storage/." "$SHARED/storage/" 2>/dev/null || true
+              rm -rf "$RELEASE/storage"
+            fi
+            ln -s "$SHARED/storage" "$RELEASE/storage"
+            echo "== Installing production dependencies =="
+            cd "$RELEASE"
+            composer install \
+              --no-dev \
+              --no-interaction \
+              --prefer-dist \
+              --optimize-autoloader \
+              --no-progress
+            echo "== Verifying Laravel application =="
+            php artisan about
+            echo "== Running database migrations =="
+            php artisan migrate --force
+            echo "== Clearing old caches =="
+            php artisan optimize:clear
+            echo "== Building production caches =="
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            echo "== Creating storage symlink =="
+            php artisan storage:link --force || true
+            echo "== Fixing release permissions =="
+            chown -R www:www "$RELEASE"
+            chmod 600 "$SHARED/.env"
+            echo "== Pre-deployment validation =="
+            php artisan about >/dev/null
+            echo "== Detecting current release =="
+            PREVIOUS_RELEASE=""
+            if [ -L "$APP/current" ]; then
+              PREVIOUS_RELEASE="$(readlink -f "$APP/current")"
+            fi
+            echo "Previous release: ${PREVIOUS_RELEASE:-none}"
+            echo "== Switching current release =="
+            ln -s "$RELEASE" "$APP/current.new"
+            mv -Tf "$APP/current.new" "$APP/current"
+            echo "Current release:"
+            readlink -f "$APP/current"
+            echo "== Reloading Nginx =="
+            nginx -t
+            systemctl reload nginx
+            echo "== Waiting for application =="
+            sleep 3
+            echo "== Production health check =="
+            HTTP_CODE="$(
+              curl \
+                --silent \
+                --show-error \
+                --output /dev/null \
+                --write-out "%{http_code}" \
+                --max-time 20 \
+                http://api.pawacode.com/
+            )"
+            echo "Health check HTTP status: $HTTP_CODE"
+            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 400 ]; then
+              echo "========================================="
+              echo "HEALTH CHECK FAILED"
+              echo "Rolling back..."
+              echo "========================================="
+              if [ -n "$PREVIOUS_RELEASE" ] && [ -d "$PREVIOUS_RELEASE" ]; then
+                ln -s "$PREVIOUS_RELEASE" "$APP/current.rollback"
+                mv -Tf "$APP/current.rollback" "$APP/current"
+                nginx -t
+                systemctl reload nginx
+                echo "Rollback completed."
+                echo "Current release:"
+                readlink -f "$APP/current"
+              else
+                echo "No previous release available."
+                exit 1
+              fi
+              exit 1
+            fi
+            echo "== Health check passed =="
+            echo "== Restarting queue workers =="
+            php artisan queue:restart
+            echo "== Cleaning old releases =="
+            CURRENT_RELEASE="$(readlink -f "$APP/current")"
+            find "$RELEASES" \
+              -mindepth 1 \
+              -maxdepth 1 \
+              -type d \
+              -print0 |
+            while IFS= read -r -d '' OLD_RELEASE; do
+              if [ "$OLD_RELEASE" != "$CURRENT_RELEASE" ]; then
+                echo "$OLD_RELEASE"
+              fi
+            done |
+            sort -r |
+            tail -n +5 |
+            xargs -r rm -rf
+            echo "========================================="
+            echo "DEPLOYMENT SUCCESSFUL"
+            echo "========================================="
+            echo "Current:"
+            readlink -f "$APP/current"
+            echo "Release:"
+            echo "$RELEASE_ID"
+            echo "Health:"
+            echo "HTTP $HTTP_CODE"

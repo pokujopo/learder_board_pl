@@ -1,6 +1,6 @@
 # ReferRace API v1 — Contract Implementation
 
-The backend is aligned to the accepted REST contract under `/api/v1`.
+The backend is aligned to the accepted REST contract under `/api/v1`
 
 ## Authentication
 - `POST /api/v1/auth/register`
