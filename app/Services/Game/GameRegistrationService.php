@@ -2,152 +2,109 @@
 
 namespace App\Services\Game;
 
+use App\Exceptions\RefercodeAlreadyUsedException;
 use App\Models\Game;
 use App\Models\GameUser;
 use App\Services\Referral\ReferralService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 
 class GameRegistrationService
 {
     public function __construct(
-        private ReferralService $referralService
+        private ReferralService $referralService,
     ) {
     }
 
+    /**
+     * Verify the referral code with the external service and register the user.
+     *
+     * The external API call intentionally happens before the DB transaction so
+     * a slow third-party service does not keep a database transaction open.
+     */
     public function verifyAndRegister(
         int $userId,
-        int $gameId,
-        string $refercode
+        Game $game,
+        string $refercode,
     ): array {
-        return DB::transaction(function () use (
-            $userId,
-            $gameId,
-            $refercode
-        ) {
+        $refercode = ReferralService::normalizeRefercode($refercode);
 
-            /*
-             * 1. Hakikisha game ipo.
-             */
-            $game = Game::findOrFail($gameId);
+        $existingRegistration = GameUser::query()
+            ->where('user_id', $userId)
+            ->where('game_id', $game->id)
+            ->first();
 
-            /*
-             * 2. Angalia kama USER HUYU tayari
-             *    amesajiliwa kwenye game hii.
-             *
-             * Hii inazuia registration duplicate
-             * kwa user + game.
-             */
-            $existingRegistration = GameUser::query()
-                ->where('user_id', $userId)
-                ->where('game_id', $gameId)
-                ->first();
+        if ($existingRegistration?->refercode_verified) {
+            throw new \DomainException('You are already registered for this competition.');
+        }
 
-            if ($existingRegistration) {
+        // Fast path. The database unique constraint remains the final authority.
+        if (GameUser::query()
+            ->where('game_id', $game->id)
+            ->where('refercode', $refercode)
+            ->where('refercode_verified', true)
+            ->exists()) {
+            throw new RefercodeAlreadyUsedException(
+                'This referral code has already been used in this competition.'
+            );
+        }
 
-                /*
-                 * Kama refercode ni ileile,
-                 * hii ni repeat request ya user yuleyule.
-                 */
-                if ($existingRegistration->refercode === $refercode) {
+        $result = $this->referralService->fetchAndSync($refercode, $game);
+        $yasuser = $result['user'];
 
-                    $yasUser = \App\Models\Yasuser::query()
-                        ->where('refercode', $refercode)
-                        ->first();
+        try {
+            $registration = DB::transaction(function () use (
+                $userId,
+                $game,
+                $refercode,
+                $existingRegistration,
+            ) {
+                $taken = GameUser::query()
+                    ->where('game_id', $game->id)
+                    ->where('refercode', $refercode)
+                    ->where('refercode_verified', true)
+                    ->lockForUpdate()
+                    ->exists();
 
-                    return [
-                        'game' => $game,
-                        'user' => $yasUser,
-                        'registration' => $existingRegistration,
-                        'hasChanges' => false,
-                        'changes' => [],
-                        'already_registered' => true,
-                    ];
+                if ($taken) {
+                    throw new RefercodeAlreadyUsedException(
+                        'This referral code has already been used in this competition.'
+                    );
                 }
 
-                /*
-                 * User huyu tayari yupo kwenye game hii
-                 * lakini anajaribu kutumia refercode nyingine.
-                 */
-                return [
-                    'status' => 409,
-                    'message' =>
-                        'You are already registered for this game.',
-                ];
-            }
+                if ($existingRegistration) {
+                    $existingRegistration->update([
+                        'refercode' => $refercode,
+                        'refercode_verified' => true,
+                        'verified_at' => now(),
+                    ]);
 
-            /*
-             * 3. Muhimu sana:
-             *
-             * Refercode lazima iwe imetumika mara moja tu
-             * ndani ya game hii.
-             *
-             * Hatujui company kwa kuangalia refercode.
-             * External API ndiyo inathibitisha.
-             */
-            $refercodeAlreadyUsed = GameUser::query()
-                ->where('game_id', $gameId)
-                ->where('refercode', $refercode)
-                ->exists();
+                    return $existingRegistration->fresh();
+                }
 
-            if ($refercodeAlreadyUsed) {
-                return [
-                    'status' => 409,
-                    'message' =>
-                        'This refercode has already been used in this game.',
-                ];
-            }
-
-            /*
-             * 4. Sasa ndipo tunapiga external API.
-             *
-             * External API ndiyo source ya taarifa
-             * za refercode/user/company.
-             */
-            $result = $this->referralService
-                ->fetchAndSync($refercode, $game);
-
-            $yasUser = $result['user'];
-
-            /*
-             * 5. Register user kwenye game.
-             *
-             * Database UNIQUE constraint ya
-             * game_id + refercode ndiyo final protection.
-             */
-            try {
-
-                $gameUser = GameUser::create([
+                return GameUser::create([
                     'user_id' => $userId,
-                    'game_id' => $gameId,
-                    'refercode' => $yasUser->refercode,
+                    'game_id' => $game->id,
+                    'refercode' => $refercode,
                     'refercode_verified' => true,
                     'verified_at' => now(),
                 ]);
+            });
+        } catch (RefercodeAlreadyUsedException $e) {
+            throw $e;
+        } catch (UniqueConstraintViolationException $e) {
+            throw new RefercodeAlreadyUsedException(
+                'This referral code has already been used in this competition.',
+                previous: $e
+            );
+        }
 
-            } catch (UniqueConstraintViolationException $e) {
-
-                /*
-                 * Race condition:
-                 * User wawili wakijaribu refercode moja
-                 * kwa wakati mmoja, database itaamua mmoja tu.
-                 */
-                return [
-                    'status' => 409,
-                    'message' =>
-                        'This refercode has already been used in this game.',
-                ];
-            }
-
-            return [
-                'status' => 200,
-                'game' => $game,
-                'user' => $yasUser,
-                'registration' => $gameUser,
-                'hasChanges' => $result['hasChanges'],
-                'changes' => $result['changes'],
-                'already_registered' => false,
-            ];
-        });
+        return [
+            'game' => $game->fresh(),
+            'user' => $yasuser,
+            'registration' => $registration,
+            'hasChanges' => $result['hasChanges'],
+            'changes' => $result['changes'],
+        ];
     }
 }

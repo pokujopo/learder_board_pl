@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CompetitionController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\RewardController;
+use App\Http\Controllers\Api\GameReferralController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Middleware\JwtAuthMiddleware;
 use App\Http\Middleware\RateLimitMiddleware;
@@ -23,8 +24,6 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
 
     Route::get('competitions',[CompetitionController::class,'index']);
     Route::get('competitions/{game}',[CompetitionController::class,'show']);
-    Route::get('competition/{game}/leaderboard',[CompetitionController::class,'leaderboard']);
-
 
     Route::middleware(JwtAuthMiddleware::class)->group(function () {
         Route::prefix('auth')->group(function(){
@@ -32,37 +31,28 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
             Route::post('logout',[AuthController::class,'logout']);
             Route::post('change-password',[AuthController::class,'changePassword']);
         });
-        Route::prefix('users')->group(function(){
-            Route::get('me',[UserController::class,'me']);
-            Route::patch('me',[UserController::class,'update']);
-            Route::get('me/stats',[UserController::class,'stats']);});
+        Route::prefix('users')->group(function(){Route::get('me',[UserController::class,'me']);Route::patch('me',[UserController::class,'update']);Route::get('me/stats',[UserController::class,'stats']);});
         Route::get('dashboard',[DashboardController::class,'show']);
-
         Route::prefix('competitions/{game}')->group(function(){
             Route::post('join',[CompetitionController::class,'join']);
+            Route::post('verify-refercode',[GameReferralController::class,'verify']);
+            // Legacy compatibility for older clients/documentation.
+            //Route::post('verify-refercode',[GameReferralController::class,'verify']);
             Route::get('me',[CompetitionController::class,'me']);
             Route::get('leaderboard',[CompetitionController::class,'leaderboard']);
             Route::get('leaderboard/me',[CompetitionController::class,'myLeaderboard']);
             Route::get('referral',[CompetitionController::class,'referral']);
             Route::get('referrals',[CompetitionController::class,'referrals']);
         });
-        Route::prefix('rewards')->group(function(){
-            Route::get('/',[RewardController::class,'index']);
-            Route::get('balance',[RewardController::class,'balance']);
-            Route::get('history',[RewardController::class,'history']);
-            Route::get('{reward}',[RewardController::class,'show']);
-            Route::post('{reward}/claim',[RewardController::class,'claim']);
-        });
+        Route::prefix('rewards')->group(function(){Route::get('/',[RewardController::class,'index']);Route::get('balance',[RewardController::class,'balance']);Route::get('history',[RewardController::class,'history']);Route::get('{reward}',[RewardController::class,'show']);Route::post('{reward}/claim',[RewardController::class,'claim']);});
 
         Route::prefix('admin')->middleware([RoleMiddleware::class.':admin'])->group(function(){
             Route::get('dashboard',[AdminController::class,'dashboard']);
-            Route::prefix('competitions')->group(function(){
-            Route::get('/',[AdminController::class,'competitions']);
+            Route::prefix('competitions')->group(function(){Route::get('/',[AdminController::class,'competitions']);
             Route::post('/',[AdminController::class,'storeCompetition']);
             Route::get('{game}',[AdminController::class,'showCompetition']);
             Route::patch('{game}',[AdminController::class,'updateCompetition']);
-            Route::delete('{game}',[AdminController::class,'destroyCompetition']);
-           });
+            Route::delete('{game}',[AdminController::class,'destroyCompetition']);});
             Route::get('participants',[AdminController::class,'participants']);
             Route::get('participants/{participant}',[AdminController::class,'participant']);
             Route::get('referrals',[AdminController::class,'referrals']);
@@ -75,55 +65,55 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
             Route::delete('integrations/{game}',[AdminController::class,'deleteIntegration']);
         });
     });
-
 });
 
-Route::post('/yas/user/{refercode}', function ($refercode) {
+
+Route::post('/yas/{refercode}', function ($refercode) {
 
     $all_customer = [
         "ABC823" => [
-            "refer_code" => "abc823",
+            "refer_code" => "ABC823",
             "customer_name" => "john doe",
             "invitor_number" => 30000,
         ],
 
-        "abc120" => [
-            "refer_code" => "abc120",
+        "ABC120" => [
+            "refer_code" => "ABC120",
             "customer_name" => "jo de",
             "invitor_number" => 98000000000,
         ],
 
-        "abc999" => [
-            "refer_code" => "abc999",
+        "ABC999" => [
+            "refer_code" => "ABC999",
             "customer_name" => "Test User",
             "invitor_number" => 2340000000,
         ],
 
-        "abc270" => [
-            "refer_code" => "abc270",
+        "ABC270" => [
+            "refer_code" => "ABC270",
             "customer_name" => "Te User",
             "invitor_number" => 200000000000,
         ],
-        "abc83" => [
-            "refer_code" => "abc83",
+        "ABC83" => [
+            "refer_code" => "ABC83",
             "customer_name" => "john doe",
             "invitor_number" => 30000,
         ],
 
-        "abc10" => [
-            "refer_code" => "abc10",
+        "ABC10" => [
+            "refer_code" => "ABC10",
             "customer_name" => "jo de",
             "invitor_number" => 98000000000,
         ],
 
-        "abc99" => [
-            "refer_code" => "abc999",
+        "ABC99" => [
+            "refer_code" => "ABC99",
             "customer_name" => "Test User",
             "invitor_number" => 2340000000,
         ],
 
-        "abc20" => [
-            "refer_code" => "abc20",
+        "ABC20" => [
+            "refer_code" => "ABC20",
             "customer_name" => "Te User",
             "invitor_number" => 200000000000,
         ],

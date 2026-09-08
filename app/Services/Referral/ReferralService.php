@@ -7,140 +7,87 @@ use App\Exceptions\ReferralServiceUnavailableException;
 use App\Models\Game;
 use App\Models\Yasuser;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ReferralService
 {
-    private const API_TIMEOUT = 30;
-    private const CONNECT_TIMEOUT = 10;
-
-    public function fetchAndSync(
-        string $refercode,
-        Game $game
-    ): array {
-
-        /*
-        |--------------------------------------------------------------------------
-        | Each game has its own external API
-        |--------------------------------------------------------------------------
-        */
-
-        $externalData = $this->fetchFromExternalApi(
-            $refercode,
-            $game
-        );
-
-        return $this->syncUser(
-            $refercode,
-            $externalData,
-            $game
-        );
-    }
+    private const API_TIMEOUT = 10;
+    private const CONNECT_TIMEOUT = 3;
+    private const MAX_RETRIES = 2;
 
     /**
-     * Fetch refercode from the external API configured for this game.
+     * Verify a referral code against the external service and synchronize it locally.
+     *
+     * The external API contract is:
+     * POST {external_api_base_url}/{REFERCODE}
+     *
+     * Example:
+     * POST https://example.com/api/yas/ABC823
      */
-    private function fetchFromExternalApi(
-        string $refercode,
-        Game $game
-    ): array {
+    public function verify(string $refercode, Game $game): array
+    {
+        $refercode = self::normalizeRefercode($refercode);
+        return $this->fetchFromExternalApi($refercode, $game);
+    }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Validate game external API configuration
-        |--------------------------------------------------------------------------
-        */
+    public function fetchAndSync(string $refercode, Game $game): array
+    {
+        $refercode = self::normalizeRefercode($refercode);
+        $customer = $this->verify($refercode, $game);
 
-        $baseUrl = $game->external_api_base_url;
+        return $this->syncUser($refercode, $customer, $game);
+    }
 
-        if (empty($baseUrl)) {
+    public static function normalizeRefercode(string $refercode): string
+    {
+        return strtoupper(trim($refercode));
+    }
 
-            Log::critical('Game external API URL is not configured', [
+    private function fetchFromExternalApi(string $refercode, Game $game): array
+    {
+        $baseUrl = trim((string) $game->external_api_base_url);
+
+        if ($baseUrl === '') {
+            Log::critical('Referral API URL is not configured', [
                 'game_id' => $game->id,
                 'game_code' => $game->code,
             ]);
 
             throw new ReferralServiceUnavailableException(
-                'Referral service is unavailable.'
+                'Referral service is not configured.'
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Build URL
-        |--------------------------------------------------------------------------
-        */
-
-        $url = rtrim($baseUrl, '/') . '/' . urlencode($refercode);
+        $url = rtrim($baseUrl, '/') . '/' . rawurlencode($refercode);
 
         try {
-
-            $response = Http::timeout(
-                self::API_TIMEOUT
-            )
-            ->connectTimeout(
-                self::CONNECT_TIMEOUT
-            )
-            ->retry(
-                3,
-                100,
-                throw: false
-            )
-            ->post($url);
-
+            $response = $this->httpClient()->post($url);
         } catch (ConnectionException $e) {
-
-            /*
-            |--------------------------------------------------------------------------
-            | External API cannot be reached
-            |--------------------------------------------------------------------------
-            */
-
-            Log::error('Referral external API connection failed', [
+            Log::error('Referral API connection failed', [
                 'game_id' => $game->id,
                 'game_code' => $game->code,
-                'url' => $url,
                 'refercode' => $refercode,
                 'error' => $e->getMessage(),
             ]);
 
             throw new ReferralServiceUnavailableException(
-                'Referral service is unavailable.'
+                'Referral service is unavailable.',
+                previous: $e
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 404 = Refercode does not exist
-        |--------------------------------------------------------------------------
-        */
-
-        if ($response->notFound()) {
-
-            Log::info('Refercode not found in external API', [
-                'game_id' => $game->id,
-                'game_code' => $game->code,
-                'refercode' => $refercode,
-            ]);
-
+        if ($response->status() === 404) {
             throw new RefercodeNotFoundException(
                 'Refercode was not found.'
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 500, 502, 503, 504 = External API unavailable
-        |--------------------------------------------------------------------------
-        */
-
         if ($response->serverError()) {
-
-            Log::error('Referral external API server error', [
+            Log::error('Referral API server error', [
                 'game_id' => $game->id,
                 'game_code' => $game->code,
-                'url' => $url,
                 'refercode' => $refercode,
                 'status' => $response->status(),
             ]);
@@ -150,15 +97,8 @@ class ReferralService
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Other 4xx errors
-        |--------------------------------------------------------------------------
-        */
-
         if ($response->clientError()) {
-
-            Log::warning('Referral external API client error', [
+            Log::warning('Referral API client error', [
                 'game_id' => $game->id,
                 'game_code' => $game->code,
                 'refercode' => $refercode,
@@ -170,14 +110,7 @@ class ReferralService
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Unexpected HTTP response
-        |--------------------------------------------------------------------------
-        */
-
         if (!$response->successful()) {
-
             Log::error('Unexpected referral API response', [
                 'game_id' => $game->id,
                 'game_code' => $game->code,
@@ -186,35 +119,16 @@ class ReferralService
             ]);
 
             throw new ReferralServiceUnavailableException(
-                'Referral service is unavailable.'
+                'Referral service returned an unexpected response.'
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Parse JSON
-        |--------------------------------------------------------------------------
-        */
+        $payload = $response->json();
 
-        $data = $response->json();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Validate response structure
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            !is_array($data) ||
-            !isset($data['customer_all']) ||
-            !is_array($data['customer_all'])
-        ) {
-
-            Log::error('Invalid referral API response structure', [
+        if (!is_array($payload)) {
+            Log::error('Referral API returned invalid JSON', [
                 'game_id' => $game->id,
-                'game_code' => $game->code,
                 'refercode' => $refercode,
-                'response' => $data,
             ]);
 
             throw new ReferralServiceUnavailableException(
@@ -222,98 +136,140 @@ class ReferralService
             );
         }
 
-        return $data['customer_all'];
+        // Support the external API's application-level status as well as HTTP status.
+        if ((int) ($payload['status'] ?? 200) === 404) {
+            throw new RefercodeNotFoundException(
+                'Refercode was not found.'
+            );
+        }
+
+        $customer = $payload['customer_all'] ?? null;
+
+        if (!is_array($customer)) {
+            Log::error('Referral API response is missing customer_all', [
+                'game_id' => $game->id,
+                'refercode' => $refercode,
+            ]);
+
+            throw new ReferralServiceUnavailableException(
+                'Invalid referral service response.'
+            );
+        }
+
+        $externalRefercode = isset($customer['refer_code'])
+            ? self::normalizeRefercode((string) $customer['refer_code'])
+            : '';
+
+        if ($externalRefercode === '') {
+            Log::error('Referral API response is missing refer_code', [
+                'game_id' => $game->id,
+                'refercode' => $refercode,
+            ]);
+
+            throw new ReferralServiceUnavailableException(
+                'Invalid referral service response.'
+            );
+        }
+
+        // Prevent an external integration from returning a different referral code
+        // than the one the user requested.
+        if ($externalRefercode !== $refercode) {
+            Log::warning('Referral API returned a different refercode', [
+                'game_id' => $game->id,
+                'requested_refercode' => $refercode,
+                'returned_refercode' => $externalRefercode,
+            ]);
+
+            throw new ReferralServiceUnavailableException(
+                'Referral service returned inconsistent data.'
+            );
+        }
+
+        $invitorNumber = $customer['invitor_number'] ?? null;
+
+        if ($invitorNumber === null || !is_numeric($invitorNumber) || (int) $invitorNumber < 0) {
+            Log::error('Referral API returned invalid invitor_number', [
+                'game_id' => $game->id,
+                'refercode' => $refercode,
+            ]);
+
+            throw new ReferralServiceUnavailableException(
+                'Invalid referral service response.'
+            );
+        }
+
+        return [
+            'refer_code' => $externalRefercode,
+            'customer_name' => isset($customer['customer_name'])
+                ? trim((string) $customer['customer_name'])
+                : null,
+            'invitor_number' => (int) $invitorNumber,
+        ];
     }
 
-    /**
-     * Sync external user into local database.
-     */
+    private function httpClient(): PendingRequest
+    {
+        return Http::acceptJson()
+            ->timeout(self::API_TIMEOUT)
+            ->connectTimeout(self::CONNECT_TIMEOUT)
+            ->retry(
+                self::MAX_RETRIES,
+                250,
+                function ($exception) {
+                    return $exception instanceof ConnectionException;
+                },
+                throw: true
+            );
+    }
+
     private function syncUser(
         string $refercode,
         array $externalData,
         Game $game
     ): array {
-
-        $externalRefercode =
-            $externalData['refer_code'] ?? $refercode;
+        $refercode = self::normalizeRefercode($refercode);
 
         $newData = [
             'game_id' => $game->id,
-
-            'refercode' =>
-                $externalRefercode,
-
-            'compitetor_name' =>
-                $externalData['customer_name'] ?? null,
-
-            'total_inviter_number' =>
-                (int) (
-                    $externalData['invitor_number'] ?? 0
-                ),
-
+            'refercode' => $refercode,
+            'compitetor_name' => $externalData['customer_name'] ?? null,
+            'total_inviter_number' => (int) $externalData['invitor_number'],
             'last_synced_at' => now(),
+            'status' => 'active',
         ];
-
-        /*
-        |--------------------------------------------------------------------------
-        | Find existing Yasuser for THIS GAME only
-        |--------------------------------------------------------------------------
-        */
 
         $existingUser = Yasuser::query()
             ->where('game_id', $game->id)
-            ->where('refercode', $externalRefercode)
+            ->where('refercode', $refercode)
             ->first();
 
         $changes = [];
 
-        if ($existingUser) {
-
-            foreach ([
-                'compitetor_name',
-                'total_inviter_number',
-            ] as $field) {
-
-                if (
-                    $existingUser->{$field}
-                    !=
-                    $newData[$field]
-                ) {
-
+        if (!$existingUser) {
+            $changes['status'] = 'new_user_created';
+        } else {
+            foreach (['compitetor_name', 'total_inviter_number', 'status'] as $field) {
+                if ($existingUser->{$field} != $newData[$field]) {
                     $changes[$field] = [
                         'old' => $existingUser->{$field},
                         'new' => $newData[$field],
                     ];
                 }
             }
-
-        } else {
-
-            $changes['status'] = 'new_user_created';
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Save
-        |--------------------------------------------------------------------------
-        */
 
         $user = Yasuser::updateOrCreate(
             [
                 'game_id' => $game->id,
-                'refercode' => $externalRefercode,
+                'refercode' => $refercode,
             ],
             $newData
         );
 
         return [
             'user' => $user->fresh(),
-
-            'hasChanges' =>
-                !empty($changes),
-
-            'changes' =>
-                $changes,
+            'hasChanges' => !empty($changes),
+            'changes' => $changes,
         ];
     }
 }
