@@ -13,24 +13,6 @@ use App\Http\Middleware\RateLimitMiddleware;
 use App\Http\Middleware\RoleMiddleware;
 use App\Models\GameUser;
 
-Route::get('/debug-cache', function () {
-    $limiter = app(\Illuminate\Cache\RateLimiter::class);
-
-    $ref = new ReflectionClass($limiter);
-    $prop = $ref->getProperty('cache');
-    $prop->setAccessible(true);
-
-    $cache = $prop->getValue($limiter);
-
-    return response()->json([
-        'cache_default' => config('cache.default'),
-        'cache_repository' => get_class($cache),
-        'cache_store' => get_class($cache->getStore()),
-        'env_cache_store' => env('CACHE_STORE'),
-        'env_cache_driver' => env('CACHE_DRIVER'),
-        'env_app_env' => env('APP_ENV'),
-    ]);
-});
 Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('register',[AuthController::class,'register']);
@@ -55,7 +37,7 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
             Route::post('join',[CompetitionController::class,'join']);
             Route::post('verify-refercode',[GameReferralController::class,'verify']);
             // Legacy compatibility for older clients/documentation.
-            //Route::post('verify-refercode',[GameReferralController::class,'verify']);
+            Route::post('games/{game}/verify-refercode',[GameReferralController::class,'verify']);
             Route::get('me',[CompetitionController::class,'me']);
             Route::get('leaderboard',[CompetitionController::class,'leaderboard']);
             Route::get('leaderboard/me',[CompetitionController::class,'myLeaderboard']);
@@ -66,11 +48,7 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
 
         Route::prefix('admin')->middleware([RoleMiddleware::class.':admin'])->group(function(){
             Route::get('dashboard',[AdminController::class,'dashboard']);
-            Route::prefix('competitions')->group(function(){Route::get('/',[AdminController::class,'competitions']);
-            Route::post('/',[AdminController::class,'storeCompetition']);
-            Route::get('{game}',[AdminController::class,'showCompetition']);
-            Route::patch('{game}',[AdminController::class,'updateCompetition']);
-            Route::delete('{game}',[AdminController::class,'destroyCompetition']);});
+            Route::prefix('competitions')->group(function(){Route::get('/',[AdminController::class,'competitions']);Route::post('/',[AdminController::class,'storeCompetition']);Route::get('{game}',[AdminController::class,'showCompetition']);Route::patch('{game}',[AdminController::class,'updateCompetition']);Route::delete('{game}',[AdminController::class,'destroyCompetition']);});
             Route::get('participants',[AdminController::class,'participants']);
             Route::get('participants/{participant}',[AdminController::class,'participant']);
             Route::get('referrals',[AdminController::class,'referrals']);
@@ -83,69 +61,4 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
             Route::delete('integrations/{game}',[AdminController::class,'deleteIntegration']);
         });
     });
-});
-
-
-Route::post('/yas/{refercode}', function ($refercode) {
-
-    $all_customer = [
-        "ABC823" => [
-            "refer_code" => "ABC823",
-            "customer_name" => "john doe",
-            "invitor_number" => 30000,
-        ],
-
-        "ABC120" => [
-            "refer_code" => "ABC120",
-            "customer_name" => "jo de",
-            "invitor_number" => 98000000000,
-        ],
-
-        "ABC999" => [
-            "refer_code" => "ABC999",
-            "customer_name" => "Test User",
-            "invitor_number" => 2340000000,
-        ],
-
-        "ABC270" => [
-            "refer_code" => "ABC270",
-            "customer_name" => "Te User",
-            "invitor_number" => 200000000000,
-        ],
-        "ABC83" => [
-            "refer_code" => "ABC83",
-            "customer_name" => "john doe",
-            "invitor_number" => 30000,
-        ],
-
-        "ABC10" => [
-            "refer_code" => "ABC10",
-            "customer_name" => "jo de",
-            "invitor_number" => 98000000000,
-        ],
-
-        "ABC99" => [
-            "refer_code" => "ABC99",
-            "customer_name" => "Test User",
-            "invitor_number" => 2340000000,
-        ],
-
-        "ABC20" => [
-            "refer_code" => "ABC20",
-            "customer_name" => "Te User",
-            "invitor_number" => 200000000000,
-        ],
-    ];
-
-    if (!isset($all_customer[$refercode])) {
-        return response()->json([
-            "status" => 404,
-            "message" => "Refercode not found",
-        ], 404);
-    }
-
-    return response()->json([
-        "status" => 200,
-        "customer_all" => $all_customer[$refercode],
-    ], 200);
 });
