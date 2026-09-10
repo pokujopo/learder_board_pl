@@ -13,3 +13,4 @@ Artisan::command('inspire', function () {
 Schedule::command('referrals:sync')
     ->everyMinute()
     ->withoutOverlapping();
+

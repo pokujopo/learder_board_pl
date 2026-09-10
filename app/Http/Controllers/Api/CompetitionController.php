@@ -463,19 +463,50 @@ class CompetitionController extends Controller
         ];
     }
 
-    private function rankResource(GameUser $participant): array
-    {
-        return [
-            'user_id' => $participant->user_id,
-            'name' => $participant->referral_name ?? $participant->user?->name,
-            'score' => (int) ($participant->referral_score ?? 0),
-            'current_rank' => $participant->current_rank,
-            'previous_rank' => $participant->previous_rank,
-            'rank_change' => $participant->rank_change,
-            'rank_movement' => $participant->rank_movement,
-        ];
-    }
 
+    public function ranking(Game $game)
+{
+    $ranking = $this->ranking
+        ->getRanking($game->id)
+        ->map(function (GameUser $participant) {
+            return $this->rankResource($participant);
+        })
+        ->values();
+
+    return response()->json([
+        'status' => 200,
+        'message' => 'Competition ranking retrieved successfully.',
+        'data' => [
+            'competition' => [
+                'public_id' => $game->public_id,
+                'name' => $game->name,
+            ],
+            'ranking' => $ranking,
+        ],
+    ]);
+}
+
+   private function rankResource(GameUser $participant): array
+{
+    return [
+        'rank' => $participant->current_rank,
+
+        'user_id' => $participant->user_id,
+
+        'name' => $participant->customer_name
+            ?? $participant->user?->name,
+
+        'refercode' => $participant->refercode,
+
+        'invitor_number' => $participant->invitor_number,
+
+        'previous_rank' => $participant->previous_rank,
+
+        'rank_change' => $participant->rank_change,
+
+        'rank_movement' => $participant->rank_movement,
+    ];
+}
     private function normalizePhone(string $phone): string
     {
         return preg_replace('/\D+/', '', $phone) ?? '';

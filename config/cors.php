@@ -13,6 +13,7 @@ return [
         'https://pawacode.com',
         'https://www.pawacode.com',
         'http://localhost:8443',
+        'http://localhost:3000',
     ],
 
     'allowed_origins_patterns' => [],

@@ -3,14 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Jobs\SyncReferralUser;
-use App\Models\Yasuser;
+use App\Models\GameUser;
 use Illuminate\Console\Command;
 
 class SyncReferrals extends Command
 {
     protected $signature = 'referrals:sync';
 
-    protected $description = 'Synchronize all registered referral users';
+    protected $description = 'Synchronize all registered competition users with external referral service';
 
     public function handle(): int
     {
@@ -18,12 +18,14 @@ class SyncReferrals extends Command
 
         $count = 0;
 
-        Yasuser::query()
-            ->select(['id', 'refercode'])
-            ->chunkById(100, function ($users) use (&$count) {
+        GameUser::query()
+            ->where('refercode_verified', true)
+            ->whereNotNull('refercode')
+            ->select(['id', 'refercode', 'game_id'])
+            ->chunkById(100, function ($gameUsers) use (&$count) {
 
-                foreach ($users as $user) {
-                    SyncReferralUser::dispatch($user->id);
+                foreach ($gameUsers as $gameUser) {
+                    SyncReferralUser::dispatch($gameUser->id);
 
                     $count++;
                 }

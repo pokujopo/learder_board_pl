@@ -2,60 +2,286 @@
 
 namespace App\Services\Ranking;
 
+use App\Models\Game;
 use App\Models\GameUser;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class RankingService
 {
-    public function getRanking(int $gameId, int $limit = 30): Collection
+    private const CACHE_TTL = 300;
+
+    private function rankingCacheKey(Game $game): string
     {
-        return GameUser::query()
-            ->where('game_user.game_id', $gameId)
-            ->where('game_user.refercode_verified', true)
-            ->leftJoin('yasuser', function ($join) {
-                $join->on('yasuser.game_id', '=', 'game_user.game_id')
-                    ->on('yasuser.refercode', '=', 'game_user.refercode');
-            })
-            ->select([
-                'game_user.*',
-                'yasuser.compitetor_name as referral_name',
-                'yasuser.total_inviter_number as referral_score',
-            ])
-            ->with('user')
-            ->orderByDesc(DB::raw('COALESCE(yasuser.total_inviter_number, 0)'))
-            ->orderBy('game_user.id')
-            ->limit(min(max($limit, 1), 10000))
-            ->get()
-            ->values();
+        return "competition:{$game->id}:ranking";
     }
 
-    public function updateRanks(int $gameId): Collection
+    /**
+     * Recalculate ranking and movement.
+     *
+     * DB = source of truth.
+     * Redis = read cache.
+     */
+    public function recalculate(Game $game): array
     {
-        $users = $this->getRanking($gameId, 10000);
+        $result = DB::transaction(function () use ($game) {
 
-        DB::transaction(function () use ($users) {
-            $users->each(function (GameUser $participant, int $index) {
+            $participants = GameUser::query()
+                ->where('game_id', $game->id)
+                ->where('refercode_verified', true)
+                ->where('status', 'active')
+                ->whereNotNull('invitor_number')
+                ->orderByRaw('CAST(invitor_number AS UNSIGNED) DESC')
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $updated = 0;
+            $movements = [
+                'up' => 0,
+                'down' => 0,
+                'none' => 0,
+            ];
+
+            foreach ($participants as $index => $participant) {
+
                 $newRank = $index + 1;
-                $oldRank = $participant->current_rank;
+                $oldRank = (int) $participant->current_rank;
 
-                $movement = $oldRank === null
-                    ? 'new'
-                    : ($newRank < $oldRank
-                        ? 'up'
-                        : ($newRank > $oldRank ? 'down' : 'same'));
+                /*
+                 * First ranking.
+                 */
+                if ($oldRank === 0) {
 
-                $participant->update([
-                    'previous_rank' => $oldRank,
-                    'current_rank' => $newRank,
-                    'rank_change' => $oldRank === null
-                        ? 0
-                        : abs($oldRank - $newRank),
-                    'rank_movement' => $movement,
-                ]);
-            });
+                    $participant->previous_rank = 0;
+                    $participant->current_rank = $newRank;
+                    $participant->rank_change = 0;
+                    $participant->rank_movement = 'none';
+
+                    $participant->save();
+
+                    $movements['none']++;
+                    $updated++;
+
+                    continue;
+                }
+
+                /*
+                 * Save previous rank.
+                 */
+                $participant->previous_rank = $oldRank;
+
+                /*
+                 * Set new rank.
+                 */
+                $participant->current_rank = $newRank;
+
+                /*
+                 * Positive = moved UP.
+                 * Negative = moved DOWN.
+                 */
+                $rankChange = $oldRank - $newRank;
+
+                $participant->rank_change = $rankChange;
+
+                if ($rankChange > 0) {
+
+                    $participant->rank_movement = 'up';
+                    $movements['up']++;
+
+                } elseif ($rankChange < 0) {
+
+                    $participant->rank_movement = 'down';
+                    $movements['down']++;
+
+                } else {
+
+                    $participant->rank_movement = 'none';
+                    $movements['none']++;
+                }
+
+                $participant->save();
+
+                $updated++;
+            }
+
+            return [
+                'participants' => $participants->count(),
+                'updated' => $updated,
+                'movements' => $movements,
+            ];
         });
 
-        return $this->getRanking($gameId, 100);
+        /*
+         * IMPORTANT:
+         *
+         * Only invalidate Redis after DB transaction succeeds.
+         */
+        $this->forgetRankingCache($game);
+
+        return $result;
+    }
+
+    /**
+     * Get paginated ranking.
+     *
+     * Redis contains only plain PHP arrays.
+     */
+    public function getRanking(
+        Game $game,
+        int $page = 1,
+        int $perPage = 20
+    ): LengthAwarePaginator {
+
+        $page = max(1, $page);
+
+        $perPage = min(
+            max(1, $perPage),
+            100
+        );
+
+        $ranking = Cache::store('redis')->remember(
+            $this->rankingCacheKey($game),
+            now()->addSeconds(self::CACHE_TTL),
+            function () use ($game) {
+
+                return GameUser::query()
+                    ->with([
+                        'user:id,name,email,phone_number',
+                    ])
+                    ->where('game_id', $game->id)
+                    ->where('refercode_verified', true)
+                    ->where('status', 'active')
+                    ->where('current_rank', '>', 0)
+                    ->orderBy('current_rank')
+                    ->get()
+                    ->map(function (GameUser $participant) {
+
+                        return [
+                            'rank' => (int) $participant->current_rank,
+
+                            'user' => [
+                                'id' => (int) $participant->user_id,
+                                'name' => $participant->user?->name,
+                            ],
+
+                            'refercode' => $participant->refercode,
+
+                            'invitor_number' =>
+                                $participant->invitor_number,
+
+                            'previous_rank' =>
+                                (int) $participant->previous_rank,
+
+                            'rank_change' =>
+                                (int) $participant->rank_change,
+
+                            'rank_movement' =>
+                                $participant->rank_movement,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            }
+        );
+
+        /*
+         * Redis must return normal PHP data.
+         */
+        $ranking = collect($ranking);
+
+        $total = $ranking->count();
+
+        $items = $ranking
+            ->forPage($page, $perPage)
+            ->values();
+
+        return new LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
+    }
+
+    /**
+     * Get participant ranking.
+     */
+    public function getParticipantRanking(
+        Game $game,
+        int $userId
+    ): ?array {
+
+        $ranking = Cache::store('redis')->remember(
+            $this->rankingCacheKey($game),
+            now()->addSeconds(self::CACHE_TTL),
+            function () use ($game) {
+
+                return GameUser::query()
+                    ->with([
+                        'user:id,name,email,phone_number',
+                    ])
+                    ->where('game_id', $game->id)
+                    ->where('refercode_verified', true)
+                    ->where('status', 'active')
+                    ->where('current_rank', '>', 0)
+                    ->orderBy('current_rank')
+                    ->get()
+                    ->map(function (GameUser $participant) {
+
+                        return [
+                            'rank' =>
+                                (int) $participant->current_rank,
+
+                            'user' => [
+                                'id' =>
+                                    (int) $participant->user_id,
+
+                                'name' =>
+                                    $participant->user?->name,
+                            ],
+
+                            'refercode' =>
+                                $participant->refercode,
+
+                            'invitor_number' =>
+                                $participant->invitor_number,
+
+                            'previous_rank' =>
+                                (int) $participant->previous_rank,
+
+                            'rank_change' =>
+                                (int) $participant->rank_change,
+
+                            'rank_movement' =>
+                                $participant->rank_movement,
+
+                            'user_id' =>
+                                (int) $participant->user_id,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            }
+        );
+
+        return collect($ranking)
+            ->firstWhere('user_id', $userId);
+    }
+
+    /**
+     * Forget ranking cache.
+     */
+    public function forgetRankingCache(Game $game): void
+    {
+        Cache::store('redis')->forget(
+            $this->rankingCacheKey($game)
+        );
     }
 }

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
+use App\Models\GameUser;
 
 
 class Game extends Model
@@ -39,10 +40,10 @@ class Game extends Model
         'third_place_prize' => 'decimal:2',
     ];
 
-    public function yasusers(): HasMany
-    {
-        return $this->hasMany(Yasuser::class);
-    }
+    public function gameUsers(): HasMany
+        {
+            return $this->hasMany(GameUser::class);
+        }
 
     public function companies(): BelongsToMany
     {
