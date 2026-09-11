@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use App\Models\GameUser;
 
 class AuthController extends Controller
 {
@@ -348,54 +349,156 @@ class AuthController extends Controller
     /**
      * Create access + refresh tokens.
      */
-    private function tokenResponse(
-        User $user,
-        string $message,
-        int $status = 200
-    ) {
-        $plainToken = Str::random(96);
+/**
+ * Create access + refresh tokens.
+ */
+private function tokenResponse(
+    User $user,
+    string $message,
+    int $status = 200
+) {
+    $plainToken = Str::random(96);
 
-        /*
-         * Revoke previous refresh tokens.
-         */
-        RefreshToken::where('user_id', $user->id)
-            ->whereNull('revoked_at')
-            ->update([
-                'revoked_at' => now(),
-            ]);
-
-        /*
-         * Store hashed refresh token.
-         */
-        RefreshToken::create([
-            'user_id'    => $user->id,
-            'token_hash' => hash('sha256', $plainToken),
-            'expires_at' => now()->addMinutes(
-                (int) env('REFRESH_TOKEN_TTL_MINUTES', 43200)
-            ),
+    /*
+     * Revoke previous refresh tokens.
+     */
+    RefreshToken::where('user_id', $user->id)
+        ->whereNull('revoked_at')
+        ->update([
+            'revoked_at' => now(),
         ]);
 
-        $cookie = cookie(
-            'refresh_token',
-            $plainToken,
-            (int) env('REFRESH_TOKEN_TTL_MINUTES', 43200),
-            '/',
-            '',
-            (bool) env('COOKIE_SECURE', true),
-            true,
-            false,
-            env('COOKIE_SAMESITE', 'lax')
-        );
+    /*
+     * Store hashed refresh token.
+     */
+    RefreshToken::create([
+        'user_id'    => $user->id,
+        'token_hash' => hash('sha256', $plainToken),
+        'expires_at' => now()->addMinutes(
+            (int) env('REFRESH_TOKEN_TTL_MINUTES', 43200)
+        ),
+    ]);
 
-        return response()->json([
-            'status'  => $status,
-            'message' => $message,
-            'data'    => [
-                'user'  => $this->user($user),
-                'token' => $this->accessTokenData($user),
-            ],
-        ], $status)->withCookie($cookie);
+    /*
+     * Refresh token cookie.
+     */
+    $cookie = cookie(
+        'refresh_token',
+        $plainToken,
+        (int) env('REFRESH_TOKEN_TTL_MINUTES', 43200),
+        '/',
+        '',
+        (bool) env('COOKIE_SECURE', true),
+        true,
+        false,
+        env('COOKIE_SAMESITE', 'lax')
+    );
+
+    /*
+     * --------------------------------------------------------------
+     * Find user's competition registration.
+     * --------------------------------------------------------------
+     *
+     * GameUser connects:
+     *
+     * User -> GameUser -> Game
+     *
+     * Prefer an active competition.
+     * If there is no active competition, use the latest registration.
+     */
+    $gameUser = GameUser::query()
+        ->with('game')
+        ->where('user_id', $user->id)
+        ->where('status', 'active')
+        ->latest('id')
+        ->first();
+
+    /*
+     * If no active registration exists, try the latest one.
+     */
+    if (!$gameUser) {
+        $gameUser = GameUser::query()
+            ->with('game')
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->first();
     }
+
+    /*
+     * Build competition response.
+     */
+    $competition = null;
+    $registration = null;
+
+    if ($gameUser && $gameUser->game) {
+        $game = $gameUser->game;
+
+        $competition = [
+            'public_id' => $game->public_id,
+            'name'      => $game->name,
+            'status'    => $game->is_active
+                ? 'active'
+                : 'inactive',
+        ];
+
+        $registration = [
+            'id' => $gameUser->id,
+
+            'refercode' =>
+                $gameUser->refercode,
+
+            'verified' =>
+                (bool) $gameUser->refercode_verified,
+
+            'verified_at' =>
+                $gameUser->verified_at,
+
+            'rank' =>
+                $gameUser->current_rank,
+
+            'previous_rank' =>
+                $gameUser->previous_rank,
+
+            'rank_change' =>
+                $gameUser->rank_change,
+
+            'rank_movement' =>
+                $gameUser->rank_movement,
+        ];
+    }
+
+    /*
+     * --------------------------------------------------------------
+     * Final response
+     * --------------------------------------------------------------
+     */
+    return response()->json([
+        'status'  => $status,
+        'message' => $message,
+
+        'data' => [
+            /*
+             * User
+             */
+            'user' => $this->user($user),
+
+            /*
+             * JWT
+             */
+            'token' => $this->accessTokenData($user),
+
+            /*
+             * Competition
+             */
+            'competition' => $competition,
+
+            /*
+             * Existing competition registration
+             */
+            'registration' => $registration,
+        ],
+    ], $status)->withCookie($cookie);
+}
 
     /**
      * Format user response.
