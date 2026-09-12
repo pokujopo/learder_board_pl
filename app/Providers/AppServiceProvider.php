@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Auth\Notifications\ResetPassword;
+
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
                 return $user->role === 'user';
             });
             ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
-            return 'http://localhost:5174/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
+            return 'https://pawacode.com/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
         });
         }
 }
