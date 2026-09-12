@@ -14,6 +14,7 @@ return [
         'https://www.pawacode.com',
         'http://localhost:8443',
         'http://localhost:3000',
+        'http://localhost:5174'
     ],
 
     'allowed_origins_patterns' => [],
