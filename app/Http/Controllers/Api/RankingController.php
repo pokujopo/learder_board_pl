@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Game;
 use App\Services\Ranking\RankingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class RankingController extends Controller
 {
@@ -31,6 +32,10 @@ class RankingController extends Controller
         $page,
         $perPage
     );
+    $otherGames = $this->ranking->getOtherGames(
+    $game,
+    (int)Auth::id()
+);
 
     $currentUserId = $request->user()?->id;
 
@@ -44,11 +49,13 @@ class RankingController extends Controller
                 'name' => $game->name,
                 'status' => $this->competitionStatus($game),
             ],
+            'other_games' => $otherGames,
 
             'rankings' => collect($participants->items())
                 ->map(function ($participant) use ($currentUserId) {
 
                     return [
+                        
                         'rank' => $participant['rank'],
 
                         'user' => $participant['user'],

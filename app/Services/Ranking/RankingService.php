@@ -275,6 +275,37 @@ class RankingService
             ->firstWhere('user_id', $userId);
     }
 
+
+    /**
+ * Get other games joined by current user.
+ */
+public function getOtherGames(
+    Game $game,
+    int $userId
+): Collection {
+
+    return GameUser::query()
+        ->with([
+            'game:id,name,public_id',
+        ])
+        ->where('user_id', $userId)
+        ->where('game_id', '!=', $game->id)
+        ->where('status', 'active')
+        ->get()
+        ->map(function (GameUser $participant) {
+
+            return [
+                'game_name' => $participant->game?->name,
+                'public_id' => $participant->game?->public_id,
+            ];
+
+        })
+        ->filter(fn ($game) =>
+            $game['public_id'] !== null
+        )
+        ->values();
+}
+
     /**
      * Forget ranking cache.
      */

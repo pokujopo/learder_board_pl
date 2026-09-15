@@ -49,7 +49,7 @@ class GameRegistrationService
             );
         }
 
-        $result = $this->referralService->fetchAndSync($refercode, $game);
+        $result = $this->referralService->verify($refercode, $game);
         $yasuser = $result['user'];
 
         try {
@@ -100,11 +100,15 @@ class GameRegistrationService
         }
 
         return [
-            'game' => $game->fresh(),
-            'user' => $yasuser,
-            'registration' => $registration,
-            'hasChanges' => $result['hasChanges'],
-            'changes' => $result['changes'],
-        ];
+                'game' => $game->fresh(),
+
+                'referral' => [
+                    'refer_code' => $result['refer_code'],
+                    'customer_name' => $result['customer_name'],
+                    'invitor_number' => $result['invitor_number'],
+                ],
+
+                'registration' => $registration,
+];
     }
 }
