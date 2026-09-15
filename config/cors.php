@@ -14,10 +14,7 @@ return [
         'https://www.pawacode.com',
         'http://localhost:8443',
         'http://localhost:3000',
-<<<<<<< HEAD
         'http://localhost:5174',
-=======
->>>>>>> 1d8df1d (new update version)
         'http://localhost:5173',
     ],
 
