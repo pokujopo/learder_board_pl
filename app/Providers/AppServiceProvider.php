@@ -31,6 +31,6 @@ class AppServiceProvider extends ServiceProvider
             });
             ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             return 'https://pawacode.com/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
-        });
-        }
-}
+
+    });
+}}

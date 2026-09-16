@@ -39,6 +39,7 @@ class AuthController extends Controller
             'password'     => $validated['password'],
             'role'         => 'user',
         ]);
+        
 
         return $this->tokenResponse(
             $user,
@@ -68,10 +69,12 @@ class AuthController extends Controller
                 'message' => 'Invalid email or password.',
             ], 401);
         }
+        
 
         return $this->tokenResponse(
             $user,
             'Login successful.'
+            
         );
     }
 

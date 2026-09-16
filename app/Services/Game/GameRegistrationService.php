@@ -33,8 +33,11 @@ class GameRegistrationService
             ->where('user_id', $userId)
             ->where('game_id', $game->id)
             ->first();
-
-        if ($existingRegistration?->refercode_verified) {
+        if (
+                $existingRegistration &&
+                (int) $existingRegistration->game_id !== (int) $game->id
+            ) {
+       // if ($existingRegistration?->refercode_verified) {
             throw new \DomainException('You are already registered for this competition.');
         }
 
@@ -50,7 +53,7 @@ class GameRegistrationService
         }
 
         $result = $this->referralService->verify($refercode, $game);
-        $yasuser = $result['user'];
+        //$yasuser = $result['user'];
 
         try {
             $registration = DB::transaction(function () use (
@@ -100,15 +103,15 @@ class GameRegistrationService
         }
 
         return [
-                'game' => $game->fresh(),
+    'game' => $game->fresh(),
 
-                'referral' => [
-                    'refer_code' => $result['refer_code'],
-                    'customer_name' => $result['customer_name'],
-                    'invitor_number' => $result['invitor_number'],
-                ],
+    'referral' => [
+        'refer_code' => $result['refer_code'],
+        'customer_name' => $result['customer_name'],
+        'invitor_number' => $result['invitor_number'],
+    ],
 
-                'registration' => $registration,
+    'registration' => $registration,
 ];
     }
 }

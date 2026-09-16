@@ -14,6 +14,7 @@ use App\Http\Middleware\RoleMiddleware;
 use App\Models\GameUser;
 use App\Http\Controllers\Api\CompetitionUserRegistrationController;
 use App\Http\Controllers\Api\RankingController;
+use App\Http\Controllers\Api\ExistingUserGameJoinController;
 
 Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function () {
 
@@ -25,8 +26,7 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
             'competitions/{game}/verify-refercode',
             [GameReferralController::class, 'verify']
         );
-
-        Route::get(
+    Route::get(
             'competitions',
             [CompetitionController::class, 'index']
         );
@@ -50,6 +50,11 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
         Route::get(
                 'competitions/{game}/ranking/me',
                 [RankingController::class, 'index']
+            );
+
+            Route::post(
+                '/competitions/{game}/join',
+                [ExistingUserGameJoinController::class, 'store']
             );
 
         Route::prefix('auth')->group(function(){
@@ -79,6 +84,17 @@ Route::post('/yas/{refercode}', function ($refercode) {
             "refer_code" => "ABC823",
             "customer_name" => "john doe",
             "invitor_number" => 100,
+        ],
+        "ABC824" => [
+            "refer_code" => "ABC824",
+            "customer_name" => "NEW doe",
+            "invitor_number" => 100,
+        ],
+
+        "ABC825" => [
+            "refer_code" => "ABC825",
+            "customer_name" => "NEoe",
+            "invitor_number" => 1000,
         ],
 
         "ABC120" => [

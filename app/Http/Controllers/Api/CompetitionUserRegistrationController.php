@@ -699,8 +699,4 @@ class CompetitionUserRegistrationController extends Controller
             ],
         ], 201)->withCookie($cookie);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 1d8df1d (new update version)
