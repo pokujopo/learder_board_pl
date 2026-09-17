@@ -198,6 +198,10 @@ if ($verification) {
 
         $this->rankingService->recalculate($game);
 
+        event(
+            new \App\Events\RankingUpdated($game)
+        );
+
         return $gameUser;
                 });
             }

@@ -1,6 +1,7 @@
 <?php
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CompetitionController;
 use App\Http\Controllers\Api\UserController;
@@ -16,6 +17,12 @@ use App\Http\Controllers\Api\CompetitionUserRegistrationController;
 use App\Http\Controllers\Api\RankingController;
 use App\Http\Controllers\Api\ExistingUserGameJoinController;
 
+Broadcast::routes([
+    'prefix' => 'v1',
+    'middleware' => [
+        JwtAuthMiddleware::class,
+    ],
+]);
 Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function () {
 
         Route::post(
@@ -83,7 +90,7 @@ Route::post('/yas/{refercode}', function ($refercode) {
         "ABC823" => [
             "refer_code" => "ABC823",
             "customer_name" => "john doe",
-            "invitor_number" => 100,
+            "invitor_number" => 70,
         ],
         "ABC824" => [
             "refer_code" => "ABC824",
@@ -94,71 +101,71 @@ Route::post('/yas/{refercode}', function ($refercode) {
         "ABC825" => [
             "refer_code" => "ABC825",
             "customer_name" => "NEoe",
-            "invitor_number" => 1000,
+            "invitor_number" => 999,
         ],
 
         "ABC120" => [
             "refer_code" => "ABC120",
             "customer_name" => "jo de",
-            "invitor_number" => 8,
+            "invitor_number" => 89,
         ],
 
         "ABC999" => [
             "refer_code" => "ABC999",
             "customer_name" => "Test User",
-            "invitor_number" => 78,
+            "invitor_number" => 7,
         ],
 
         "ABC270" => [
             "refer_code" => "ABC270",
             "customer_name" => "Te User",
-            "invitor_number" => 26,
+            "invitor_number" => 92,
         ],
         "ABC83" => [
             "refer_code" => "ABC83",
             "customer_name" => "john doe",
-            "invitor_number" => 3000,
+            "invitor_number" => 40,
         ],
 
         "ABC10" => [
             "refer_code" => "ABC10",
             "customer_name" => "jo de",
-            "invitor_number" => 980,
+            "invitor_number" => 70,
         ],
 
         "ABC99" => [
             "refer_code" => "ABC99",
             "customer_name" => "Test User",
-            "invitor_number" => 200,
+            "invitor_number" => 20,
         ],
 
         "ABC20" => [
             "refer_code" => "ABC20",
             "customer_name" => "Te User",
-            "invitor_number" => 20,
+            "invitor_number" => 5000,
         ],
 
         "ABC12" => [
             "refer_code" => "ABC12",
             "customer_name" => "jo de",
-            "invitor_number" => 98,
+            "invitor_number" => 9,
         ],
 
         "ABC130" => [
             "refer_code" => "ABC130",
             "customer_name" => "Test User",
-            "invitor_number" => 233,
+            "invitor_number" => 4333,
         ],
 
         "ABC278" => [
             "refer_code" => "ABC278",
             "customer_name" => "Te User",
-            "invitor_number" => 883,
+            "invitor_number" => 8890,
         ],
         "ABC833" => [
             "refer_code" => "ABC833",
             "customer_name" => "john doe",
-            "invitor_number" => 303,
+            "invitor_number" => 9,
         ],
     ];
 

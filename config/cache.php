@@ -120,6 +120,11 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
+    'broadcast_per_page' => (int) env(
+    'RANKING_BROADCAST_PER_PAGE',
+    50
+),
+
     /*
     |--------------------------------------------------------------------------
     | Serializable Classes

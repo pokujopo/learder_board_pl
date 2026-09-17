@@ -62,21 +62,27 @@ class SyncReferralUser implements ShouldQueue
          */
         if ($result['hasChanges']) {
 
-            $rankingResult = $rankingService->recalculate(
-                $gameUser->game
-            );
+                $rankingResult = $rankingService->recalculate(
+                    $gameUser->game
+                );
 
-            Log::info(
-                'Referral synchronized and ranking recalculated',
-                [
-                    'game_user_id' => $gameUser->id,
-                    'game_id' => $gameUser->game_id,
-                    'refercode' => $gameUser->refercode,
-                    'changes' => $result['changes'],
-                    'ranking' => $rankingResult,
-                ]
-            );
-        }
+                event(
+                    new \App\Events\RankingUpdated(
+                        $gameUser->game
+                    )
+                );
+
+                Log::info(
+                    'Referral synchronized and ranking recalculated',
+                    [
+                        'game_user_id' => $gameUser->id,
+                        'game_id' => $gameUser->game_id,
+                        'refercode' => $gameUser->refercode,
+                        'changes' => $result['changes'],
+                        'ranking' => $rankingResult,
+                    ]
+                );
+            }
 
     } catch (Throwable $e) {
 
