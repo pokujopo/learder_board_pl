@@ -47,6 +47,7 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
     Route::prefix('auth')->group(function () {
         Route::post('register',[AuthController::class,'register']);
         Route::post('login',[AuthController::class,'login']);
+        Route::post('/login/verify-otp', [AuthController::class, 'verifyLoginOtp']);
         Route::post('refresh',[AuthController::class,'refresh']);
         Route::post('forgot-password',[AuthController::class,'forgotPassword']);
         Route::post('reset-password',[AuthController::class,'resetPassword']);
@@ -69,6 +70,7 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
             Route::get('me',[AuthController::class,'me']);
             Route::post('logout',[AuthController::class,'logout']);
             Route::post('change-password',[AuthController::class,'changePassword']);
+            Route::post('change-password/verify-otp',[AuthController::class,'verifyChangePasswordOtp']);
 
         });
 

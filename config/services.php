@@ -47,6 +47,19 @@ return [
     'token' => env('REFERRAL_API_TOKEN'),
 ],
 
+'spro_sms' => [
+    'url' => env(
+        'SPRO_SMS_API_URL',
+        'https://bulksms.spro.co.tz/api/v1/send'
+    ),
+
+    'api_key' => env('SPRO_SMS_API_KEY'),
+
+    'sender_id' => env('SPRO_SMS_SENDER_ID', 'FastOTP'),
+
+    'domain' => env('SPRO_SMS_DOMAIN'),
+],
+
 ]; 
 
 

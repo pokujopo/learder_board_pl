@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "452372246e4948080c532507d724c90a",
+    "content-hash": "3976d3c1f752c263f9fd0690d0895e6b",
     "packages": [
         {
             "name": "brick/math",
@@ -688,6 +688,74 @@
                 "source": "https://github.com/igorw/evenement/tree/v3.0.2"
             },
             "time": "2023-08-08T05:53:35+00:00"
+        },
+        {
+            "name": "fouladgar/laravel-otp",
+            "version": "v6.2.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mohammad-fouladgar/laravel-otp.git",
+                "reference": "498b1d72c1b5b4739a3b981f27940073c0108481"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mohammad-fouladgar/laravel-otp/zipball/498b1d72c1b5b4739a3b981f27940073c0108481",
+                "reference": "498b1d72c1b5b4739a3b981f27940073c0108481",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/notifications": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.4",
+                "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+                "php-coveralls/php-coveralls": "^2.1",
+                "phpunit/phpunit": "^10.5.17|^11.5.3"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Fouladgar\\OTP\\ServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "Fouladgar\\OTP\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Mohammad Fouladgar",
+                    "email": "fouladgar.dev@gmail.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Generate, send, and validate one-time passwords (OTP) for any recipient type.",
+            "keywords": [
+                "laravel",
+                "laravel-otp",
+                "one-time-password",
+                "otp",
+                "otp-authentication",
+                "otp-login"
+            ],
+            "support": {
+                "issues": "https://github.com/mohammad-fouladgar/laravel-otp/issues",
+                "source": "https://github.com/mohammad-fouladgar/laravel-otp"
+            },
+            "time": "2026-08-25T08:35:13+00:00"
         },
         {
             "name": "fruitcake/php-cors",

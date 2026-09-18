@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use App\Models\GameUser;
+use Fouladgar\OTP\Facades\OTP;
+use Fouladgar\OTP\Exceptions\OTPException;
 
 class AuthController extends Controller
 {
@@ -47,42 +49,205 @@ class AuthController extends Controller
             201
         );
     }
+/**
+ * Login user.
+ *
+ * Step 1:
+ * Validate email/phone + password and send OTP.
+ *
+ * OTP can be delivered by:
+ * - email
+ * - SMS
+ *
+ * JWT is NOT issued until OTP is verified.
+ */
+public function login(Request $request)
+{
+    $validated = $request->validate([
+        'identifier' => 'required|string',
+        'password'   => 'required|string',
+        'otp_method' => 'nullable|in:email,phone',
+    ]);
 
-    /**
-     * Login user.
+    $identifier = trim($validated['identifier']);
+
+    /*
+     * Find user by email or phone number.
      */
-    public function login(Request $request)
-    {
-        $validated = $request->validate([
-            'email'    => 'required|email',
-            'password' => 'required|string',
-        ]);
+    $user = User::query()
+        ->where(function ($query) use ($identifier) {
+            $query->where('email', $identifier)
+                ->orWhere('phone_number', $identifier);
+        })
+        ->first();
 
-        $user = User::where('email', $validated['email'])->first();
-
-        if (
-            !$user ||
-            !Hash::check($validated['password'], $user->password)
-        ) {
-            return response()->json([
-                'status'  => 401,
-                'message' => 'Invalid email or password.',
-            ], 401);
-        }
-        
-
-        return $this->tokenResponse(
-            $user,
-            'Login successful.'
-            
-        );
+    if (
+        !$user ||
+        !Hash::check($validated['password'], $user->password)
+    ) {
+        return response()->json([
+            'status'  => 401,
+            'message' => 'Invalid credentials.',
+        ], 401);
     }
 
-    /**
-     * Refresh access token using refresh token cookie.
+    /*
+     * Default OTP method.
+     *
+     * If frontend does not send otp_method,
+     * email will remain the default so the existing
+     * email OTP behaviour is preserved.
      */
-    public function refresh(Request $request)
-    {
+    $otpMethod = $validated['otp_method'] ?? 'email';
+
+    /*
+     * ----------------------------------------------------------
+     * EMAIL OTP
+     * ----------------------------------------------------------
+     */
+    if ($otpMethod === 'email') {
+        try {
+            $sent = OTP::purpose('login_')
+                ->channel('mail')
+                ->send($user->email);
+
+            if (!$sent) {
+                return response()->json([
+                    'status'  => 500,
+                    'message' => 'Unable to send verification code.',
+                ], 500);
+            }
+
+            return response()->json([
+                'status'  => 200,
+                'message' => 'Verification code sent to your email.',
+                'data'    => [
+                    'otp_required' => true,
+                    'otp_method'   => 'email',
+                    'identifier'   => $user->email,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status'  => 500,
+                'message' => 'Unable to send verification code.',
+            ], 500);
+        }
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * SMS OTP
+     * ----------------------------------------------------------
+     */
+    try {
+        $sent = OTP::purpose('login_')
+            ->channel('sms')
+            ->send($user->phone_number);
+
+        if (!$sent) {
+            return response()->json([
+                'status'  => 500,
+                'message' => 'Unable to send verification code.',
+            ], 500);
+        }
+
+        return response()->json([
+            'status'  => 200,
+            'message' => 'Verification code sent to your phone.',
+            'data'    => [
+                'otp_required' => true,
+                'otp_method'   => 'phone',
+                'identifier'   => $user->phone_number,
+            ],
+        ]);
+    } catch (\Throwable $e) {
+        report($e);
+
+        return response()->json([
+            'status'  => 500,
+            'message' => 'Unable to send verification code.',
+        ], 500);
+    }
+}
+
+/**
+ * Verify login OTP and issue JWT + refresh token.
+ */
+public function verifyLoginOtp(Request $request)
+{
+    $validated = $request->validate([
+        'identifier' => 'required|string',
+        'otp'        => 'required|string',
+    ]);
+
+    $identifier = trim($validated['identifier']);
+
+    /*
+     * Find user by email or phone.
+     */
+    $user = User::query()
+        ->where(function ($query) use ($identifier) {
+            $query->where('email', $identifier)
+                ->orWhere('phone_number', $identifier);
+        })
+        ->first();
+
+    if (!$user) {
+        return response()->json([
+            'status'  => 401,
+            'message' => 'Invalid verification code.',
+        ], 401);
+    }
+
+    /*
+     * Determine which OTP recipient was used.
+     */
+    if ($identifier === $user->email) {
+        $otpRecipient = $user->email;
+    } elseif ($identifier === $user->phone_number) {
+        $otpRecipient = $user->phone_number;
+    } else {
+        return response()->json([
+            'status'  => 401,
+            'message' => 'Invalid verification code.',
+        ], 401);
+    }
+
+    try {
+        $valid = OTP::purpose('login_')
+            ->validate(
+                $otpRecipient,
+                $validated['otp']
+            );
+
+        if (!$valid) {
+            return response()->json([
+                'status'  => 401,
+                'message' => 'Invalid verification code.',
+            ], 401);
+        }
+    } catch (OTPException $e) {
+        return response()->json([
+            'status'  => 401,
+            'message' => 'Invalid or expired verification code.',
+        ], 401);
+    }
+
+    return $this->tokenResponse(
+        $user,
+        'Login successful.'
+    );
+}
+
+
+/**
+ * Refresh access token using refresh token cookie.
+ */
+public function refresh(Request $request)
+{
         $plainToken = $request->cookie('refresh_token');
 
         if (!$plainToken) {
@@ -201,116 +366,372 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Send password reset link.
+ /**
+ * Send password reset OTP.
+ *
+ * OTP can be delivered by:
+ * - email
+ * - phone
+ */
+public function forgotPassword(Request $request)
+{
+    $validated = $request->validate([
+        'identifier' => 'required|string',
+        'otp_method' => 'nullable|in:email,phone',
+    ]);
+
+    $identifier = trim($validated['identifier']);
+
+    /*
+     * Find user by email or phone.
      */
-    public function forgotPassword(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|email',
-        ]);
+    $user = User::query()
+        ->where(function ($query) use ($identifier) {
+            $query->where('email', $identifier)
+                ->orWhere('phone_number', $identifier);
+        })
+        ->first();
 
-        Password::sendResetLink([
-            'email' => $validated['email'],
-        ]);
-
+    /*
+     * Do not reveal whether the account exists.
+     */
+    if (!$user) {
         return response()->json([
             'status'  => 200,
-            'message' => 'If the account exists, password reset instructions will be sent.',
+            'message' => 'If the account exists, a verification code will be sent.',
         ]);
     }
 
-    /**
-     * Reset password.
+    /*
+     * Email remains the default for backward compatibility.
      */
-    public function resetPassword(Request $request)
-    {
-        $validated = $request->validate([
-            'email'                 => 'required|email',
-            'token'                 => 'required|string',
-            'password'              => 'required|string|min:8|confirmed',
-            'password_confirmation' => 'required|string',
-        ]);
+    $otpMethod = $validated['otp_method'] ?? 'email';
 
-        $status = Password::reset(
-            [
-                'email'                 => $validated['email'],
-                'password'              => $validated['password'],
-                'password_confirmation' => $validated['password_confirmation'],
-                'token'                 => $validated['token'],
-            ],
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password' => $password,
-                ])->save();
+    /*
+     * ----------------------------------------------------------
+     * EMAIL OTP
+     * ----------------------------------------------------------
+     */
+    if ($otpMethod === 'email') {
+        try {
+            $sent = OTP::purpose('password_reset_')
+                ->channel('mail')
+                ->send($user->email);
 
-                /*
-                 * Revoke all active refresh tokens
-                 * after password reset.
-                 */
-                RefreshToken::where('user_id', $user->id)
-                    ->whereNull('revoked_at')
-                    ->update([
-                        'revoked_at' => now(),
-                    ]);
+            if (!$sent) {
+                return response()->json([
+                    'status'  => 500,
+                    'message' => 'Unable to send verification code.',
+                ], 500);
             }
-        );
 
-        if ($status !== Password::PASSWORD_RESET) {
             return response()->json([
-                'status'  => 422,
-                'message' => 'Unable to reset password.',
-            ], 422);
+                'status'  => 200,
+                'message' => 'Verification code sent to your email.',
+                'data'    => [
+                    'otp_required' => true,
+                    'otp_method'   => 'email',
+                    'identifier'   => $user->email,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status'  => 500,
+                'message' => 'Unable to send verification code.',
+            ], 500);
+        }
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * SMS OTP
+     * ----------------------------------------------------------
+     */
+    try {
+        $sent = OTP::purpose('password_reset_')
+            ->channel('sms')
+            ->send($user->phone_number);
+
+        if (!$sent) {
+            return response()->json([
+                'status'  => 500,
+                'message' => 'Unable to send verification code.',
+            ], 500);
         }
 
         return response()->json([
             'status'  => 200,
-            'message' => 'Password reset successfully.',
+            'message' => 'Verification code sent to your phone.',
+            'data'    => [
+                'otp_required' => true,
+                'otp_method'   => 'phone',
+                'identifier'   => $user->phone_number,
+            ],
         ]);
+    } catch (\Throwable $e) {
+        report($e);
+
+        return response()->json([
+            'status'  => 500,
+            'message' => 'Unable to send verification code.',
+        ], 500);
+    }
+}
+   
+/**
+ * Verify password reset OTP and set a new password.
+ */
+public function resetPassword(Request $request)
+{
+    $validated = $request->validate([
+        'identifier'          => 'required|string',
+        'otp'                 => 'required|string',
+        'otp_method'          => 'required|in:email,phone',
+        'password'            => 'required|string|min:8|confirmed',
+        'password_confirmation' => 'required|string',
+    ]);
+
+    $identifier = trim($validated['identifier']);
+
+    /*
+     * Find user by email or phone.
+     */
+    $user = User::query()
+        ->where(function ($query) use ($identifier) {
+            $query->where('email', $identifier)
+                ->orWhere('phone_number', $identifier);
+        })
+        ->first();
+
+    if (!$user) {
+        return response()->json([
+            'status'  => 422,
+            'message' => 'Unable to reset password.',
+        ], 422);
     }
 
-    /**
-     * Change authenticated user's password.
+    /*
+     * Determine the OTP recipient.
      */
-    public function changePassword(Request $request)
-    {
-        $validated = $request->validate([
-            'current_password' => 'required|string',
-            'password'         => 'required|string|min:8|confirmed',
-        ]);
-
-        $user = $request->user();
-
-        if (!Hash::check(
-            $validated['current_password'],
-            $user->password
-        )) {
-            return response()->json([
-                'status'  => 422,
-                'message' => 'Current password is incorrect.',
-            ], 422);
-        }
-
-        $user->update([
-            'password' => $validated['password'],
-        ]);
+    if ($validated['otp_method'] === 'email') {
+        $otpRecipient = $user->email;
 
         /*
-         * Revoke all active refresh tokens
-         * after password change.
+         * Prevent using phone identifier with email OTP.
          */
-        RefreshToken::where('user_id', $user->id)
-            ->whereNull('revoked_at')
-            ->update([
-                'revoked_at' => now(),
+        if ($identifier !== $user->email) {
+            return response()->json([
+                'status'  => 422,
+                'message' => 'Invalid verification request.',
+            ], 422);
+        }
+    } else {
+        $otpRecipient = $user->phone_number;
+
+        /*
+         * Prevent using email identifier with phone OTP.
+         */
+        if ($identifier !== $user->phone_number) {
+            return response()->json([
+                'status'  => 422,
+                'message' => 'Invalid verification request.',
+            ], 422);
+        }
+    }
+
+    try {
+        $valid = OTP::purpose('password_reset_')
+            ->validate(
+                $otpRecipient,
+                $validated['otp']
+            );
+
+        if (!$valid) {
+            return response()->json([
+                'status'  => 422,
+                'message' => 'Invalid verification code.',
+            ], 422);
+        }
+    } catch (OTPException $e) {
+        return response()->json([
+            'status'  => 422,
+            'message' => 'Invalid or expired verification code.',
+        ], 422);
+    }
+
+    /*
+     * Change password.
+     */
+    $user->update([
+        'password' => $validated['password'],
+    ]);
+
+    /*
+     * Revoke all active refresh tokens
+     * after password reset.
+     */
+    RefreshToken::where('user_id', $user->id)
+        ->whereNull('revoked_at')
+        ->update([
+            'revoked_at' => now(),
+        ]);
+
+    return response()->json([
+        'status'  => 200,
+        'message' => 'Password reset successfully.',
+    ]);
+}
+
+    /**
+ * Send change-password OTP.
+ *
+ * OTP can be delivered by:
+ * - email
+ * - phone
+ */
+public function changePassword(Request $request)
+{
+    $validated = $request->validate([
+        'current_password' => 'required|string',
+        'otp_method'       => 'required|in:email,phone',
+    ]);
+
+    $user = $request->user();
+
+    if (!Hash::check(
+        $validated['current_password'],
+        $user->password
+    )) {
+        return response()->json([
+            'status'  => 422,
+            'message' => 'Current password is incorrect.',
+        ], 422);
+    }
+
+    $otpMethod = $validated['otp_method'];
+
+    if ($otpMethod === 'email') {
+        try {
+            $sent = OTP::purpose('change_password_')
+                ->channel('mail')
+                ->send($user->email);
+
+            if (!$sent) {
+                return response()->json([
+                    'status'  => 500,
+                    'message' => 'Unable to send verification code.',
+                ], 500);
+            }
+
+            return response()->json([
+                'status'  => 200,
+                'message' => 'Verification code sent to your email.',
+                'data'    => [
+                    'otp_required' => true,
+                    'otp_method'   => 'email',
+                    'identifier'   => $user->email,
+                ],
             ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'status'  => 500,
+                'message' => 'Unable to send verification code.',
+            ], 500);
+        }
+    }
+
+    try {
+        $sent = OTP::purpose('change_password_')
+            ->channel('sms')
+            ->send($user->phone_number);
+
+        if (!$sent) {
+            return response()->json([
+                'status'  => 500,
+                'message' => 'Unable to send verification code.',
+            ], 500);
+        }
 
         return response()->json([
             'status'  => 200,
-            'message' => 'Password changed successfully.',
+            'message' => 'Verification code sent to your phone.',
+            'data'    => [
+                'otp_required' => true,
+                'otp_method'   => 'phone',
+                'identifier'   => $user->phone_number,
+            ],
         ]);
+    } catch (\Throwable $e) {
+        report($e);
+
+        return response()->json([
+            'status'  => 500,
+            'message' => 'Unable to send verification code.',
+        ], 500);
+    }
+}
+
+
+/**
+ * Verify change-password OTP and update password.
+ */
+public function verifyChangePasswordOtp(Request $request)
+{
+    $validated = $request->validate([
+        'otp'                   => 'required|string',
+        'otp_method'            => 'required|in:email,phone',
+        'password'              => 'required|string|min:8|confirmed',
+        'password_confirmation' => 'required|string',
+    ]);
+
+    $user = $request->user();
+
+    if ($validated['otp_method'] === 'email') {
+        $otpRecipient = $user->email;
+    } else {
+        $otpRecipient = $user->phone_number;
     }
 
+    try {
+        $valid = OTP::purpose('change_password_')
+            ->validate(
+                $otpRecipient,
+                $validated['otp']
+            );
+
+        if (!$valid) {
+            return response()->json([
+                'status'  => 422,
+                'message' => 'Invalid verification code.',
+            ], 422);
+        }
+    } catch (OTPException $e) {
+        return response()->json([
+            'status'  => 422,
+            'message' => 'Invalid or expired verification code.',
+        ], 422);
+    }
+
+    $user->update([
+        'password' => $validated['password'],
+    ]);
+
+    // Revoke all existing refresh tokens.
+    RefreshToken::where('user_id', $user->id)
+        ->whereNull('revoked_at')
+        ->update([
+            'revoked_at' => now(),
+        ]);
+
+    return response()->json([
+        'status'  => 200,
+        'message' => 'Password changed successfully.',
+    ]);
+}
     /**
      * Generate access token data.
      */
