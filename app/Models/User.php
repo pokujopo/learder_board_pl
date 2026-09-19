@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\GameUser;
 
-#[Fillable(['name', 'email', 'password', 'phone_number', 'location'])]
+#[Fillable(['name', 'email', 'password', 'phone_number', 'location', 'login_otp_verified_at',])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -23,6 +23,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'login_otp_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

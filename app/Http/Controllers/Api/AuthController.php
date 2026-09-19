@@ -81,6 +81,9 @@ public function login(Request $request)
         })
         ->first();
 
+    /*
+     * Validate credentials.
+     */
     if (
         !$user ||
         !Hash::check($validated['password'], $user->password)
@@ -92,18 +95,32 @@ public function login(Request $request)
     }
 
     /*
-     * Default OTP method.
+     * ----------------------------------------------------------
+     * OTP ALREADY VERIFIED
+     * ----------------------------------------------------------
      *
-     * If frontend does not send otp_method,
-     * email will remain the default so the existing
-     * email OTP behaviour is preserved.
+     * User has completed the one-time login verification.
+     *
+     * Do NOT send OTP again.
+     */
+    if ($user->login_otp_verified_at !== null) {
+        return $this->tokenResponse(
+            $user,
+            'Login successful.'
+        );
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * FIRST LOGIN
+     * ----------------------------------------------------------
+     *
+     * User has never completed login OTP verification.
      */
     $otpMethod = $validated['otp_method'] ?? 'email';
 
     /*
-     * ----------------------------------------------------------
      * EMAIL OTP
-     * ----------------------------------------------------------
      */
     if ($otpMethod === 'email') {
         try {
@@ -138,9 +155,7 @@ public function login(Request $request)
     }
 
     /*
-     * ----------------------------------------------------------
      * SMS OTP
-     * ----------------------------------------------------------
      */
     try {
         $sent = OTP::purpose('login_')
@@ -172,7 +187,6 @@ public function login(Request $request)
         ], 500);
     }
 }
-
 /**
  * Verify login OTP and issue JWT + refresh token.
  */
@@ -203,7 +217,7 @@ public function verifyLoginOtp(Request $request)
     }
 
     /*
-     * Determine which OTP recipient was used.
+     * Determine OTP recipient.
      */
     if ($identifier === $user->email) {
         $otpRecipient = $user->email;
@@ -216,6 +230,9 @@ public function verifyLoginOtp(Request $request)
         ], 401);
     }
 
+    /*
+     * Verify OTP.
+     */
     try {
         $valid = OTP::purpose('login_')
             ->validate(
@@ -236,13 +253,23 @@ public function verifyLoginOtp(Request $request)
         ], 401);
     }
 
+    /*
+     * ----------------------------------------------------------
+     * ONE-TIME LOGIN VERIFICATION COMPLETED
+     * ----------------------------------------------------------
+     */
+    $user->update([
+        'login_otp_verified_at' => now(),
+    ]);
+
+    /*
+     * Issue JWT + refresh token.
+     */
     return $this->tokenResponse(
         $user,
         'Login successful.'
     );
 }
-
-
 /**
  * Refresh access token using refresh token cookie.
  */

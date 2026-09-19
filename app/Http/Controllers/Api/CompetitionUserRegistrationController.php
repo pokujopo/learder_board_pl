@@ -241,7 +241,6 @@ class CompetitionUserRegistrationController extends Controller
         |--------------------------------------------------------------------------
         | 11. Existing user cannot join another competition
         |--------------------------------------------------------------------------
-        */
 
         if ($existingUser) {
             $hasCompetitionRegistration = GameUser::query()
@@ -255,6 +254,8 @@ class CompetitionUserRegistrationController extends Controller
                 ], 409);
             }
         }
+        */
+
 
         /*
         |--------------------------------------------------------------------------

@@ -50,7 +50,8 @@ class ExistingUserGameJoinService
 
             /*
              * User mmoja haruhusiwi kujiunga na competition zaidi ya moja.
-             */
+            
+
             $alreadyJoined = GameUser::where('user_id', $user->id)
                 ->lockForUpdate()
                 ->exists();
@@ -60,7 +61,7 @@ class ExistingUserGameJoinService
                     'You have already joined a competition.'
                 );
             }
-
+ */
             /*
              * Hakikisha phone inayotumwa ni ya account iliyopo.
              */
