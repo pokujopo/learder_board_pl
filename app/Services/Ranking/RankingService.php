@@ -276,33 +276,28 @@ class RankingService
     }
 
 
-    /**
- * Get other games joined by current user.
+/**
+ * Get other competitions joined by current user.
  */
 public function getOtherGames(
     Game $game,
     int $userId
 ): Collection {
-
     return GameUser::query()
-        ->with([
-            'game:id,name,public_id',
-        ])
         ->where('user_id', $userId)
         ->where('game_id', '!=', $game->id)
         ->where('status', 'active')
+        ->whereHas('game')
+        ->with([
+            'game:id,name,public_id',
+        ])
         ->get()
         ->map(function (GameUser $participant) {
-
             return [
-                'game_name' => $participant->game?->name,
-                'public_id' => $participant->game?->public_id,
+                'public_id' => $participant->game->public_id,
+                'name' => $participant->game->name,
             ];
-
         })
-        ->filter(fn ($game) =>
-            $game['public_id'] !== null
-        )
         ->values();
 }
 
