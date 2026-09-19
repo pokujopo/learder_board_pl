@@ -24,92 +24,64 @@ class RankingController extends Controller
     public function index(Request $request, Game $game)
 {
     $page = (int) $request->integer('page', 1);
-
     $perPage = (int) $request->integer('per_page', 20);
+
+    $currentUserId = $request->user()?->id;
 
     $participants = $this->ranking->getRanking(
         $game,
         $page,
         $perPage
     );
-    $otherGames = $this->ranking->getOtherGames(
-    $game,
-    (int)Auth::id()
-);
 
-    $currentUserId = $request->user()?->id;
+    $otherGames = $currentUserId
+        ? $this->ranking->getOtherGames(
+            $game,
+            (int) $currentUserId
+        )
+        : collect();
 
     return response()->json([
         'status' => 200,
-
         'data' => [
-
             'competition' => [
                 'public_id' => $game->public_id,
                 'name' => $game->name,
                 'status' => $this->competitionStatus($game),
             ],
+
             'other_games' => $otherGames,
 
             'rankings' => collect($participants->items())
                 ->map(function ($participant) use ($currentUserId) {
-
                     return [
-                        
                         'rank' => $participant['rank'],
-
                         'user' => $participant['user'],
-
-                        'refercode' =>
-                            $participant['refercode'],
-
-                        'invitor_number' =>
-                            $participant['invitor_number'],
-
-                        'previous_rank' =>
-                            $participant['previous_rank'],
-
-                        'rank_change' =>
-                            $participant['rank_change'],
-
-                        'rank_movement' =>
-                            $participant['rank_movement'],
-
-                        'label' =>
-                            $currentUserId !== null &&
+                        'refercode' => $participant['refercode'],
+                        'invitor_number' => $participant['invitor_number'],
+                        'previous_rank' => $participant['previous_rank'],
+                        'rank_change' => $participant['rank_change'],
+                        'rank_movement' => $participant['rank_movement'],
+                        'label' => $currentUserId !== null &&
                             $participant['user']['id'] === $currentUserId
                                 ? 'you'
                                 : null,
                     ];
                 })
                 ->values(),
+        ],
 
-            'pagination' => [
-                'current_page' =>
-                    $participants->currentPage(),
-
-                'per_page' =>
-                    $participants->perPage(),
-
-                'total' =>
-                    $participants->total(),
-
-                'last_page' =>
-                    $participants->lastPage(),
-
-                'from' =>
-                    $participants->firstItem(),
-
-                'to' =>
-                    $participants->lastItem(),
-
-                'has_more' =>
-                    $participants->hasMorePages(),
-            ],
+        'pagination' => [
+            'current_page' => $participants->currentPage(),
+            'per_page' => $participants->perPage(),
+            'total' => $participants->total(),
+            'last_page' => $participants->lastPage(),
+            'from' => $participants->firstItem(),
+            'to' => $participants->lastItem(),
+            'has_more' => $participants->hasMorePages(),
         ],
     ]);
 }
-
     private function competitionStatus(Game $game): string
     {
         $now = now();
