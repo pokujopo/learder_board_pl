@@ -100,6 +100,12 @@ Route::post('/yas/{refercode}', function ($refercode) {
             "invitor_number" => 100,
         ],
 
+        "ABC809" => [
+            "refer_code" => "ABC809",
+            "customer_name" => "NEW doe",
+            "invitor_number" => 100,
+        ],
+
         "ABC825" => [
             "refer_code" => "ABC825",
             "customer_name" => "NEoe",
