@@ -300,7 +300,6 @@ public function getOtherGames(
         })
         ->values();
 }
-
     /**
      * Forget ranking cache.
      */
