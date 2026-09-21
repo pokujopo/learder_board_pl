@@ -12,7 +12,7 @@ return [
     'allowed_origins' => [
         'https://pawacode.com',
         'https://www.pawacode.com',
-        'https://liability-willpower-sleek.ngrok-free.dev'
+        'https://liability-willpower-sleek.ngrok-free.dev',
         'http://localhost:8443',
         'http://localhost:3000',
         'http://localhost:5174',
