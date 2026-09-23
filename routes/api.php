@@ -16,6 +16,7 @@ use App\Models\GameUser;
 use App\Http\Controllers\Api\CompetitionUserRegistrationController;
 use App\Http\Controllers\Api\RankingController;
 use App\Http\Controllers\Api\ExistingUserGameJoinController;
+use App\Http\Controllers\Api\SettingsController;
 
 Broadcast::routes([
     'prefix' => 'v1',
@@ -71,6 +72,31 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
             Route::post('logout',[AuthController::class,'logout']);
             Route::post('change-password',[AuthController::class,'changePassword']);
             Route::post('change-password/verify-otp',[AuthController::class,'verifyChangePasswordOtp']);
+
+        });
+
+
+        Route::prefix('settings')->group(function () {
+
+            Route::get('/', [
+                SettingsController::class,
+                'show'
+            ]);
+
+            Route::patch('/profile', [
+                SettingsController::class,
+                'updateProfile'
+            ]);
+
+            Route::patch('/payout', [
+                SettingsController::class,
+                'updatePayout'
+            ]);
+
+            Route::patch('/notifications', [
+                SettingsController::class,
+                'updateNotifications'
+            ]);
 
         });
 

@@ -12,6 +12,8 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\GameUser;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+//use App\Models\UserSetting;
 
 #[Fillable(['name', 'email', 'password', 'phone_number', 'location', 'login_otp_verified_at',])]
 #[Hidden(['password', 'remember_token'])]
@@ -48,9 +50,13 @@ class User extends Authenticatable
 }
 
    
-    public function gameUsers(): HasMany
+public function gameUsers(): HasMany
     {
         return $this->hasMany(GameUser::class, 'user_id');
     }
+public function settings(): HasOne
+{
+    return $this->hasOne(UserSetting::class);
+}
     
 }
