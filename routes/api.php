@@ -25,6 +25,12 @@ Broadcast::routes([
     ],
 ]);
 
+Route::get('/v1/welcome', function () {
+    return response()->json([
+        'v1' => 'api v1 pawacode by PTZ'
+    ]);
+});
+
 Route::get('/debug/client-ip', function (Request $request) {
     return response()->json([
         'ip' => $request->ip(),
