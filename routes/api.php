@@ -24,6 +24,14 @@ Broadcast::routes([
         JwtAuthMiddleware::class,
     ],
 ]);
+
+Route::get('/debug/client-ip', function (Request $request) {
+    return response()->json([
+        'ip' => $request->ip(),
+        'xff' => $request->header('X-Forwarded-For'),
+        'cf_connecting_ip' => $request->header('CF-Connecting-IP'),
+    ]);
+});
 Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function () {
 
         Route::post(
