@@ -229,7 +229,7 @@ jobs:
             done |
             sort -r |
             tail -n +5 |
-            xargs -r rm -rf
+            xargs -r sudo rm -rf
 
             echo "========================================="
             echo "DEPLOYMENT SUCCESSFUL"
