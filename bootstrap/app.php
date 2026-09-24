@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Middleware\SecurityHeaders;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -48,7 +49,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 | Request::HEADER_X_FORWARDED_PORT
                 | Request::HEADER_X_FORWARDED_PROTO
         );
-            $middleware->alias([
+        $middleware->api(append: [
+                SecurityHeaders::class,
+            ]);
+        $middleware->alias([
             'role' => RoleMiddleware::class,
         ]);
     })

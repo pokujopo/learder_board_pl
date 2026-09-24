@@ -27,7 +27,7 @@ Broadcast::routes([
 
 Route::get('/v1/welcome', function () {
     return response()->json([
-        'v1' => 'api v1 pawacode by PTZ'
+        'v1' => 'api v1 created by PTZ'
     ]);
 });
 
