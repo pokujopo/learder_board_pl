@@ -9,23 +9,26 @@ use Illuminate\Http\Request;
 
 class AffiliateAnalyticsController extends Controller
 {
-    public function __invoke(
-        Request $request,
-        AffiliateAnalyticsService $analyticsService
-    ): JsonResponse {
-        $link = AffiliateLink::where('user_id', $request->user()->id)
-            ->where('is_active', true)
-            ->firstOrFail();
+   public function __invoke(
+    Request $request,
+    AffiliateAnalyticsService $analyticsService
+): JsonResponse {
+    $user = $request->user();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'link' => [
-                    'code' => $link->code,
-                    'url' => url('/api/ref/' . $link->code),
-                ],
-                'stats' => $analyticsService->getStats($link),
+    $link = AffiliateLink::firstOrCreate(
+        ['user_id' => $user->id],
+        ['code' => strtoupper(\Illuminate\Support\Str::random(8))]
+    );
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'link' => [
+                'code' => $link->code,
+                'url' => url('/ref/' . $link->code),
             ],
-        ]);
-    }
+            'stats' => $analyticsService->getStats($link),
+        ],
+    ]);
+}
 }
