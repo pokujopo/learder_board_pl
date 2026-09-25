@@ -37,7 +37,7 @@ Route::get('/v1/welcome', function () {
 });
 
 
-Route::get('/ref/{code}', AffiliateRedirectController::class)->name('affiliate.redirect');
+//Route::get('/ref/{code}', AffiliateRedirectController::class)->name('affiliate.redirect');
 
 Route::get('/debug/client-ip', function (Request $request) {
     return response()->json([
