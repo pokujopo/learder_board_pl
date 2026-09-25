@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Auth\Notifications\ResetPassword;
 use App\Notifications\Channels\SproSmsChannel;
 use Illuminate\Notifications\ChannelManager;
-
+use Fouladgar\OTP\Notifications\OTPNotification;
+use Illuminate\Notifications\Messages\MailMessage;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,21 +24,33 @@ class AppServiceProvider extends ServiceProvider
      * Bootstrap any application services.
      */
     public function boot(): void
-        {   
-             $this->app->make(ChannelManager::class)->extend(
+    {   
+        $this->app->make(ChannelManager::class)->extend(
             'sms',
             fn ($app) => $app->make(SproSmsChannel::class)
-            );
-            Gate::define('admin', function ($user) {
-                return $user->role === 'admin';
-            });
+        );
 
-            Gate::define('user', function ($user) {
-                return $user->role === 'user';
-            });
-            
-            ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
+        Gate::define('admin', function ($user) {
+            return $user->role === 'admin';
+        });
+
+        Gate::define('user', function ($user) {
+            return $user->role === 'user';
+        });
+        
+        // Reset Password URL
+        ResetPassword::createUrlUsing(function (object $notifiable, string $token) {
             return 'https://pawacode.com/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
+        });
 
-    });
-}}
+        // OTP Mail Customization
+        OTPNotification::toMailUsing(function (string $recipient, string $token) {
+            return (new MailMessage)
+                ->subject('Pawacode - Verification Code')
+                ->view('emails.otp', [
+                    'token' => $token,
+                    'recipient' => $recipient,
+                ]);
+        });
+    }
+}

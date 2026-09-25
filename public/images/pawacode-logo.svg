@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1400.71 176.11">
+  <defs>
+    <linearGradient id="b" x1="23.68" y1="0" x2="23.68" y2="91.4" gradientUnits="userSpaceOnUse">
+      <stop offset=".21" stop-color="#f6ae15"/>
+      <stop offset=".24" stop-color="#f49c17"/>
+      <stop offset=".32" stop-color="#f37f1b"/>
+      <stop offset=".39" stop-color="#f1681e"/>
+      <stop offset=".47" stop-color="#f05821"/>
+      <stop offset=".57" stop-color="#f04e22"/>
+      <stop offset=".69" stop-color="#f04c23"/>
+      <stop offset=".72" stop-color="#ef432a"/>
+      <stop offset=".82" stop-color="#ee2d3f"/>
+      <stop offset=".91" stop-color="#ed204c"/>
+      <stop offset="1" stop-color="#ed1c51"/>
+    </linearGradient>
+    <linearGradient id="c" x1="877.49" y1="-125.73" x2="1250.75" y2="254.8" gradientUnits="userSpaceOnUse">
+      <stop offset=".23" stop-color="#f6ae15"/>
+      <stop offset=".28" stop-color="#f49c17"/>
+      <stop offset=".37" stop-color="#f37f1b"/>
+      <stop offset=".47" stop-color="#f1681e"/>
+      <stop offset=".57" stop-color="#f05821"/>
+      <stop offset=".69" stop-color="#f04e22"/>
+      <stop offset=".84" stop-color="#f04c23"/>
+      <stop offset=".86" stop-color="#ef432a"/>
+      <stop offset=".91" stop-color="#ee2d3f"/>
+      <stop offset=".96" stop-color="#ed204c"/>
+      <stop offset="1" stop-color="#ed1c51"/>
+    </linearGradient>
+  </defs>
+  <polygon points="47.36 41.17 47.36 91.4 0 50.23 0 0 47.36 41.17" fill="url(#b)"/>
+  <g>
+    <path d="M152.62,65.75c0,24.06-13.76,44.9-33.83,55.1-8.39,4.27-17.89,6.66-27.94,6.66h-43.27v45.32H.23v-81.43h78.89c13.79,0,24.97-11.18,24.97-24.97s-11.18-24.97-24.97-24.97h-31.75V3.99h43.5c34.11,0,61.76,27.66,61.76,61.76Z" fill="currentColor"/>
+    <path d="M215.38,7.45h43.87l69.9,165.38h-48.79l-11.96-29.32h-63.34l-11.73,29.32h-47.85L215.38,7.45ZM255.26,108.09l-18.3-46.68-18.53,46.68h36.83Z" fill="currentColor"/>
+    <path d="M308.28,8.63h48.09l28.62,95,31.67-95.47h39.18l31.67,95.47,28.62-95h47.15l-54.89,165.38h-39.64l-33.08-94.54-32.84,94.54h-39.64L308.28,8.63Z" fill="currentColor"/>
+    <path d="M612.29,7.45h43.87l69.9,165.38h-48.79l-11.96-29.32h-63.34l-11.73,29.32h-47.85L612.29,7.45ZM652.17,108.09l-18.3-46.68-18.53,46.68h36.83Z" fill="currentColor"/>
+  </g>
+  <path d="M734.97,91.2v-.47c0-47.85,36.83-85.39,86.56-85.39,33.55,0,55.13,14.07,69.67,34.25l-34.25,26.51c-9.38-11.73-20.17-19.24-35.89-19.24-22.99,0-39.18,19.47-39.18,43.4v.47c0,24.63,16.19,43.87,39.18,43.87,17.12,0,27.21-7.98,37.06-19.94l34.25,24.4c-15.48,21.35-36.36,37.06-72.72,37.06-46.92,0-84.68-35.89-84.68-84.92ZM896.83,91.2v-.47c0-47.15,38-85.39,88.67-85.39s88.2,37.77,88.2,84.92v.47c0,47.15-38,85.39-88.67,85.39s-88.2-37.77-88.2-84.92ZM1027.26,91.2v-.47c0-23.69-17.12-44.34-42.22-44.34s-41.52,20.17-41.52,43.87v.47c0,23.69,17.12,44.34,41.99,44.34s41.76-20.17,41.76-43.87ZM1092.71,8.63h63.33c58.64,0,92.66,33.78,92.66,81.16v.47c0,47.38-34.48,82.57-93.6,82.57h-62.4V8.63ZM1156.75,132.48c27.21,0,45.27-15.01,45.27-41.52v-.47c0-26.27-18.06-41.52-45.27-41.52h-18.53v83.51h18.53ZM1267.47,8.63h132.07v38.71h-87.03v24.86h78.82v35.89h-78.82v26.04h88.2v38.71h-133.24V8.63Z" fill="url(#c)"/>
+</svg>
