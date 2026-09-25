@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\CompetitionUserRegistrationController;
 use App\Http\Controllers\Api\RankingController;
 use App\Http\Controllers\Api\ExistingUserGameJoinController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\AnalyticsController;
 
 Broadcast::routes([
     'prefix' => 'v1',
@@ -66,10 +67,14 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
         Route::post('refresh',[AuthController::class,'refresh']);
         Route::post('forgot-password',[AuthController::class,'forgotPassword']);
         Route::post('reset-password',[AuthController::class,'resetPassword']);
+       
     });
 
     Route::middleware(JwtAuthMiddleware::class)->group(function () {
-
+         Route::get(
+        '/competitions/{game}/analytics',
+        [AnalyticsController::class, 'show']
+    );
         Route::get(
                 'competitions/{game}/ranking/me',
                 [RankingController::class, 'index']
