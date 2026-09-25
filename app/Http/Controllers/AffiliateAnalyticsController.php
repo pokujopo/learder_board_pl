@@ -25,7 +25,7 @@ class AffiliateAnalyticsController extends Controller
         'data' => [
             'link' => [
                 'code' => $link->code,
-                'url' => url('/ref/' . $link->code),
+                'url' => 'https://pawacode.com/ref/' . $link->code,
             ],
             'stats' => $analyticsService->getStats($link),
         ],
