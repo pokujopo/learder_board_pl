@@ -18,6 +18,10 @@ use App\Http\Controllers\Api\RankingController;
 use App\Http\Controllers\Api\ExistingUserGameJoinController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\AffiliateRedirectController;
+use App\Http\Controllers\AffiliateAnalyticsController;
+
+
 
 Broadcast::routes([
     'prefix' => 'v1',
@@ -31,6 +35,9 @@ Route::get('/v1/welcome', function () {
         'v1' => 'api v1 created by PTZ'
     ]);
 });
+
+
+Route::get('/ref/{code}', AffiliateRedirectController::class)->name('affiliate.redirect');
 
 Route::get('/debug/client-ip', function (Request $request) {
     return response()->json([
@@ -84,6 +91,7 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
                 '/competitions/{game}/join',
                 [ExistingUserGameJoinController::class, 'store']
             );
+        Route::get('/affiliate/analytics', AffiliateAnalyticsController::class);
 
         Route::prefix('auth')->group(function(){
 
