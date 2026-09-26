@@ -19,6 +19,20 @@ class RateLimitMiddleware
             return $next($request);
         }
 
+        if ($request->is('ref/*')) {
+            $key = $this->getKey($request);
+            $limit = 1;
+            $decay = 1800; // 30 minutes
+
+            if ($this->limiter->tooManyAttempts($key, $limit, $decay)) {
+                return redirect('https://pawacode.com');
+            }
+
+    $this->limiter->hit($key, $decay);
+
+    return $next($request);
+}
+
         $key = $this->getKey($request);
         $limit = $this->getLimit($request);
         $decay = 60;
