@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class AffiliateLink extends Model
 {
@@ -27,4 +28,19 @@ class AffiliateLink extends Model
     {
         return $this->hasMany(AffiliateClick::class);
     }
+    public function referrals(): HasMany
+{
+    return $this->hasMany(AffiliateReferral::class);
+}
+    public function rewards(): HasManyThrough
+{
+    return $this->hasManyThrough(
+        AffiliateReward::class,
+        AffiliateReferral::class,
+        'affiliate_link_id',
+        'affiliate_referral_id',
+        'id',
+        'id'
+    );
+}
 }

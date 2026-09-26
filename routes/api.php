@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Middleware\JwtAuthMiddleware;
 use App\Http\Middleware\RateLimitMiddleware;
 use App\Http\Middleware\RoleMiddleware;
+use App\Http\Controllers\AffiliateReferralController;
 use App\Models\GameUser;
 use App\Http\Controllers\Api\CompetitionUserRegistrationController;
 use App\Http\Controllers\Api\RankingController;
@@ -86,6 +87,7 @@ Route::prefix('v1')->middleware([RateLimitMiddleware::class])->group(function ()
                 'competitions/{game}/ranking/me',
                 [RankingController::class, 'index']
             );
+        Route::post('/affiliate/referrals/verify', AffiliateReferralController::class);
 
             Route::post(
                 '/competitions/{game}/join',
