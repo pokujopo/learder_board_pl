@@ -64,7 +64,7 @@ class AffiliateAnalyticsService
 
         if ($periodStart) {
             $rewards->where(
-                'created_at',
+                'affiliate_rewards.created_at',
                 '>=',
                 $periodStart
             );
